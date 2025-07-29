@@ -4,7 +4,8 @@ use anyhow::{Context, Result, anyhow};
 use miette::{LabeledSpan, NamedSource, Report, Severity, miette};
 use serde::Deserialize;
 use tracing::debug;
-use tree_sitter::{Node, Parser, Query, QueryCursor, Range, StreamingIterator};
+use tree_sitter::{Node, Parser, Query, QueryCapture, QueryCursor, Range, StreamingIterator};
+use regex::Regex;
 
 #[derive(Debug, Deserialize)]
 pub struct Rule {
@@ -45,6 +46,25 @@ pub fn load_rules_from_directory(dir: &Path) -> Result<Vec<Rule>> {
     Ok(rules)
 }
 
+/// Allows mentioning captures in rule descriptions, and templates them with the actual captures when reporting errors.
+fn template_description(template: &str, query: &Query, captures: &[QueryCapture<'_>], input: &str) -> Result<String> {
+    let re = Regex::new(r"@([a-z-]+)").unwrap();
+    let mut new = String::with_capacity(template.len());
+    let mut last_match = 0;
+    for caps in re.captures_iter(template) {
+        let m = caps.get(0).unwrap();
+        let name = &caps[1];
+        new.push_str(&template[last_match..m.start()]);
+        let capture = captures.iter().find(|c| query.capture_names()[c.index as usize] == name).with_context(|| {
+            anyhow!("Failed to find capture with name '{name}', when templating error description:\n\n'{template}'")
+        })?;
+        new.push_str(capture.node.utf8_text(input.as_bytes()).context("Non utf-8 text input")?);
+        last_match = m.end();
+    }
+    new.push_str(&template[last_match..]);
+    Ok(new)
+}
+
 fn apply_rule(rule: &Rule, tree: Node, input: &str) -> Result<Vec<Report>> {
     let query = Query::new(&tree_sitter_motoko::LANGUAGE.into(), &rule.query)
         .with_context(|| format!("Failed to create query for rule '{}'", rule.name))?;
@@ -59,32 +79,36 @@ fn apply_rule(rule: &Rule, tree: Node, input: &str) -> Result<Vec<Report>> {
     let mut cursor = QueryCursor::new();
     let mut matches = cursor.matches(&query, tree, input.as_bytes());
     let mut filtered: HashSet<Range> = HashSet::new();
-    let mut errors: Vec<Range> = Vec::new();
+    let mut errors = Vec::new();
     while let Some(m) = matches.next() {
         for error_node in m.nodes_for_capture_index(error_capture_index) {
-            errors.push(error_node.range());
+            // NOTE: We have to use `to_vec` here, or tree-sitter will silently swap the captures under our feet.
+            errors.push((error_node.range(), m.captures.to_vec()));
         }
+
         if let Some(filter_capture_index) = filter_capture_index {
             for filter_node in m.nodes_for_capture_index(filter_capture_index) {
                 filtered.insert(filter_node.range());
             }
         }
     }
-    let diagnostics = errors
-        .into_iter()
-        .filter(|range| !filtered.contains(range))
-        .map(|range| {
-            miette!(
-                severity = Severity::Error,
-                labels = vec![LabeledSpan::new_primary_with_span(
-                    Some(rule.description.clone()),
-                    (range.start_byte, range.end_byte - range.start_byte)
-                )],
-                "[ERROR]: {}",
-                rule.name
-            )
-        })
-        .collect();
+    let mut diagnostics = vec![];
+    for (range, captures) in errors {
+        if filtered.contains(&range) {
+            continue;
+        }
+        let description = template_description(&rule.description, &query, &captures, input)?;
+        let diagnostic = miette!(
+            severity = Severity::Error,
+            labels = vec![LabeledSpan::new_primary_with_span(
+                Some(description),
+                (range.start_byte, range.end_byte - range.start_byte)
+            )],
+            "[ERROR]: {}",
+            rule.name
+        );
+        diagnostics.push(diagnostic);
+    }
     Ok(diagnostics)
 }
 

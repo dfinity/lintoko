@@ -1,0 +1,6 @@
+name = "pun-fields"
+description = "Use field punning to to avoid repetition: Replace `{ @field = @field }` with `{ @field }`"
+query = """
+((exp_field (identifier) @field (var_exp (identifier) @value)) @error
+  (#eq? @field @value))
+"""

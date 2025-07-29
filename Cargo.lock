@@ -359,6 +359,7 @@ dependencies = [
  "insta",
  "miette",
  "predicates",
+ "regex",
  "serde",
  "tempfile",
  "toml",

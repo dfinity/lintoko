@@ -56,46 +56,64 @@ expression: lint_output
     ╰────
 
   × [ERROR]: shared-caller
-    ╭─[<input_path>:13:16]
- 12 │ 
- 13 │   public shared(msg) func sharedCaller() {};
+    ╭─[<input_path>:15:16]
+ 14 │ 
+ 15 │   public shared(msg) func sharedCaller() {};
     ·                ──┬──
     ·                  ╰── Do not use `shared(msg)`. Use `shared({ caller })` instead.
- 14 │   public shared msg func sharedCallerVar() {};
+ 16 │   public shared msg func sharedCallerVar() {};
     ╰────
 
   × [ERROR]: shared-caller
-    ╭─[<input_path>:14:17]
- 13 │   public shared(msg) func sharedCaller() {};
- 14 │   public shared msg func sharedCallerVar() {};
+    ╭─[<input_path>:16:17]
+ 15 │   public shared(msg) func sharedCaller() {};
+ 16 │   public shared msg func sharedCallerVar() {};
     ·                 ─┬─
     ·                  ╰── Do not use `shared(msg)`. Use `shared({ caller })` instead.
- 15 │   public shared ({ caller }) func sharedCallerPat() {};
+ 17 │   public shared ({ caller }) func sharedCallerPat() {};
     ╰────
 
   × [ERROR]: transient-usage
-    ╭─[<input_path>:19:3]
- 18 │   transient let transientMap = OrderedMap.Make<Nat>(Nat.compare);
- 19 │   transient let transientMap = OrderedMap.Make.Well<Nat>(Nat.compare);
+    ╭─[<input_path>:21:3]
+ 20 │   transient let transientMap = OrderedMap.Make<Nat>(Nat.compare);
+ 21 │   transient let transientMap = OrderedMap.Make.Well<Nat>(Nat.compare);
     ·   ─────────────────────────────────┬─────────────────────────────────
     ·                                    ╰── Only use `transient` for OrderedMap.Make, OrderedSet.Make, and Random.Finite
- 20 │ 
+ 22 │ 
     ╰────
 
   × [ERROR]: assign-plus
-    ╭─[<input_path>:21:3]
- 20 │ 
- 21 │   x := 1 + x;
+    ╭─[<input_path>:23:3]
+ 22 │ 
+ 23 │   x := 1 + x;
     ·   ─────┬────
-    ·        ╰── Use `+=` instead of reassigning the variable
- 22 │   x := x - 1;
+    ·        ╰── Use `x += 1` instead of reassigning the variable.
+ 24 │   x := x + 2;
+    ╰────
+
+  × [ERROR]: assign-plus
+    ╭─[<input_path>:24:3]
+ 23 │   x := 1 + x;
+ 24 │   x := x + 2;
+    ·   ─────┬────
+    ·        ╰── Use `x += 2` instead of reassigning the variable.
+ 25 │   x := x - 1;
     ╰────
 
   × [ERROR]: assign-minus
-    ╭─[<input_path>:22:3]
- 21 │   x := 1 + x;
- 22 │   x := x - 1;
+    ╭─[<input_path>:25:3]
+ 24 │   x := x + 2;
+ 25 │   x := x - 1;
     ·   ─────┬────
-    ·        ╰── Use `-=` instead of reassigning the variable
- 23 │   x := 1 - x;
+    ·        ╰── Use `x -= 1` instead of reassigning the variable
+ 26 │   x := 1 - x;
+    ╰────
+
+  × [ERROR]: pun-fields
+    ╭─[<input_path>:28:13]
+ 27 │ 
+ 28 │   let _ = { field = field };
+    ·             ──────┬──────
+    ·                   ╰── Use field punning to to avoid repetition: Replace `{ field = field }` with `{ field }`
+ 29 │ }
     ╰────

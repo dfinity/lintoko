@@ -10,6 +10,8 @@ shared (msg) actor class() {
   flexible let flexibleLet = 42;
   stable let stableLet = 42;
 
+  public func hello() : async Text {};
+
   public shared(msg) func sharedCaller() {};
   public shared msg func sharedCallerVar() {};
   public shared ({ caller }) func sharedCallerPat() {};
@@ -19,6 +21,9 @@ shared (msg) actor class() {
   transient let transientMap = OrderedMap.Make.Well<Nat>(Nat.compare);
 
   x := 1 + x;
+  x := x + 2;
   x := x - 1;
   x := 1 - x;
+
+  let _ = { field = field };
 }
