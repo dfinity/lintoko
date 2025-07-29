@@ -1,3 +1,31 @@
 # lintoko
 
 An extensible linting tool for Motoko
+
+
+## Running
+
+```bash
+lintoko src/actor.mo
+```
+
+Specify custom rules with the `-r` flag. The tool will look for rules in the specified directory.
+
+```bash
+lintoko -r custom-rules/ src/actor.mo
+```
+
+## Defining Rules
+
+Rules are specified as TOML files. For example this rule forbids the usage of `let-else`:
+
+```toml
+name = "no-let-else"
+description = "Do not use let-else. Use a switch instead."
+query =  """
+(let_else_dec) @error
+"""
+```
+
+The "query" field contains a [Tree-sitter query](https://tree-sitter.github.io/tree-sitter/using-parsers/queries/1-syntax.html) that matches a parse tree produced by a [Motoko tree-sitter grammar](https://github.com/christoph-dfinity/tree-sitter-motoko).
+Look at the other rules in [[./custom-rules]] or [[./default-rules]] for more complex examples.
