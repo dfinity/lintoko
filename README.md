@@ -28,4 +28,4 @@ query =  """
 ```
 
 The "query" field contains a [Tree-sitter query](https://tree-sitter.github.io/tree-sitter/using-parsers/queries/1-syntax.html) that matches a parse tree produced by a [Motoko tree-sitter grammar](https://github.com/christoph-dfinity/tree-sitter-motoko).
-Look at the other rules in [[./custom-rules]] or [[./default-rules]] for more complex examples.
+Look at the rules in [`custom-rules`](./custom-rules) or [`default-rules`](./default-rules) for more complex examples.
