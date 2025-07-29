@@ -1,0 +1,5 @@
+name = "no-flexible"
+description = "Do not use the `flexible` keyword. Use `transient` instead."
+query = """
+"flexible" @error
+"""

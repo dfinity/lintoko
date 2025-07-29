@@ -1,0 +1,6 @@
+name = "assign-minus"
+description = "Use `-=` instead of reassigning the variable"
+query = """
+((assign_exp_object (var_exp) @var (bin_exp_object left: (var_exp) @left_var (bin_op "-") )) @error
+  (#eq? @var @left_var))
+"""

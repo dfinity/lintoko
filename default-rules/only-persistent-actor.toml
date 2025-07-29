@@ -1,0 +1,9 @@
+name = "only-persistent-actor"
+description = "Only use persistent actors. Change `actor` to `persistent actor`."
+query = """
+(source_file (obj_dec "actor" @error))
+(source_file (class_dec "actor" @error))
+
+(obj_dec "persistent" "actor" @filter)
+(class_dec "persistent" "actor" @filter)
+"""

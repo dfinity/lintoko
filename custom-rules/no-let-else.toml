@@ -1,0 +1,5 @@
+name = "no-let-else"
+description = "Do not use let-else. Use a switch instead."
+query =  """
+(let_else_dec) @error
+"""

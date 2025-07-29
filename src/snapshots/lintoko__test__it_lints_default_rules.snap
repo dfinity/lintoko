@@ -1,0 +1,30 @@
+---
+source: src/lib.rs
+expression: lint_output
+---
+  × [ERROR]: only-persistent-actor
+   ╭─[<input_path>:5:14]
+ 4 │ 
+ 5 │ shared (msg) actor class() {
+   ·              ──┬──
+   ·                ╰── Only use persistent actors. Change `actor` to `persistent actor`.
+ 6 │   func letElse() {
+   ╰────
+
+  × [ERROR]: no-flexible
+    ╭─[<input_path>:10:3]
+  9 │ 
+ 10 │   flexible let flexibleLet = 42;
+    ·   ────┬───
+    ·       ╰── Do not use the `flexible` keyword. Use `transient` instead.
+ 11 │   stable let stableLet = 42;
+    ╰────
+
+  × [ERROR]: no-stable
+    ╭─[<input_path>:11:3]
+ 10 │   flexible let flexibleLet = 42;
+ 11 │   stable let stableLet = 42;
+    ·   ───┬──
+    ·      ╰── Do not use the `stable` keyword. It's implicit when using persistent actors.
+ 12 │ 
+    ╰────

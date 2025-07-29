@@ -1,0 +1,8 @@
+name = "transient-usage"
+description = "Only use `transient` for OrderedMap.Make, OrderedSet.Make, and Random.Finite"
+query = """
+(dec_field "transient" (let_dec (call_exp_object (dot_exp_object) @call))
+ (#not-eq? @call "OrderedMap.Make")
+ (#not-eq? @call "OrderedSet.Make")
+ (#not-eq? @call "Random.Finite")) @error
+"""

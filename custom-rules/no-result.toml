@@ -1,0 +1,7 @@
+name = "no-result"
+description = "Do not use the Result pattern. Use Runtime.trap() instead."
+query = """
+(import
+  (var_pat (identifier) @import
+  (#eq? @import "Result"))) @error
+"""

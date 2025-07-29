@@ -1,0 +1,5 @@
+name = "no-stable"
+description = "Do not use the `stable` keyword. It's implicit when using persistent actors."
+query = """
+"stable" @error
+"""

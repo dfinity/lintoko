@@ -1,0 +1,9 @@
+name = "shared-caller"
+description = "Do not use `shared(msg)`. Use `shared({ caller })` instead."
+query = """
+(func_dec "shared" (tup_pat (var_pat)) @error)
+(func_dec "shared" (var_pat) @error)
+
+(class_dec "shared" . (tup_pat (var_pat)) @error)
+(class_dec "shared" . (var_pat) @error)
+"""
