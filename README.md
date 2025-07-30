@@ -2,6 +2,10 @@
 
 An extensible linting tool for Motoko
 
+## Installation
+
+Download the latest release from [GitHub](https://github.com/christoph-dfinity/lintoko/releases) and put it in your PATH.
+
 ## Running
 
 ```bash
