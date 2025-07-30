@@ -1,6 +1,6 @@
 import Result "mo:base/Result";
 import OrderedMap "mo:base/OrderedMap";
-import Nat "mo:base/Nat";
+import PureList "mo:core/pure/List";
 
 shared (msg) actor class() {
   func letElse() {

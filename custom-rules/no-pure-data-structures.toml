@@ -1,0 +1,7 @@
+name = "no-pure-data-structures"
+description = "Do not use data structures from pure/*. Use imperative structures instead."
+query = """
+(import
+ (text_literal) @import
+ (#match? @import "pure")) @error
+"""
