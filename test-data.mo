@@ -26,4 +26,12 @@ shared (msg) actor class() {
   x := 1 - x;
 
   let _ = { field = field };
+  let _ = switch _ {
+    case (false) {};
+    case (true) {};
+  };
+  let _ = switch _ {
+    case true {};
+    case false {};
+  };
 }

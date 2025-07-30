@@ -115,5 +115,27 @@ expression: lint_output
  28 │   let _ = { field = field };
     ·             ──────┬──────
     ·                   ╰── Use field punning to to avoid repetition: Replace `{ field = field }` with `{ field }`
- 29 │ }
+ 29 │   let _ = switch _ {
+    ╰────
+
+  × [ERROR]: no-bool-switch
+    ╭─[<input_path>:29:11]
+ 28 │       let _ = { field = field };
+ 29 │ ╭─▶   let _ = switch _ {
+ 30 │ │       case (false) {};
+ 31 │ │       case (true) {};
+ 32 │ ├─▶   };
+    · ╰──── Don't switch on boolean values, use if instead
+ 33 │       let _ = switch _ {
+    ╰────
+
+  × [ERROR]: no-bool-switch
+    ╭─[<input_path>:33:11]
+ 32 │       };
+ 33 │ ╭─▶   let _ = switch _ {
+ 34 │ │       case true {};
+ 35 │ │       case false {};
+ 36 │ ├─▶   };
+    · ╰──── Don't switch on boolean values, use if instead
+ 37 │     }
     ╰────
