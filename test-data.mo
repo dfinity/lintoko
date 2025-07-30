@@ -34,4 +34,17 @@ shared (msg) actor class() {
     case true {};
     case false {};
   };
+
+  public func listReturningFunction() : async List<Text> {
+    return null
+  };
+  public func setReturningFunction() : async Set.Set<Text> {
+    return null
+  };
+  public func mapReturningFunction() : async Map.Map<Text, Nat> {
+    return null
+  };
+  public func arrayReturningFunction() : async [Text] {
+    return null
+  };
 }

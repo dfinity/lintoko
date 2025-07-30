@@ -146,5 +146,32 @@ expression: lint_output
  35 │ │       case false {};
  36 │ ├─▶   };
     · ╰──── Don't switch on boolean values, use if instead
- 37 │     }
+ 37 │     
+    ╰────
+
+  × [ERROR]: only-return-primitives
+    ╭─[<input_path>:38:47]
+ 37 │ 
+ 38 │   public func listReturningFunction() : async List<Text> {
+    ·                                               ─────┬────
+    ·                                                    ╰── Only return primitive types from publicly exposed endpoints
+ 39 │     return null
+    ╰────
+
+  × [ERROR]: only-return-primitives
+    ╭─[<input_path>:41:46]
+ 40 │   };
+ 41 │   public func setReturningFunction() : async Set.Set<Text> {
+    ·                                              ──────┬──────
+    ·                                                    ╰── Only return primitive types from publicly exposed endpoints
+ 42 │     return null
+    ╰────
+
+  × [ERROR]: only-return-primitives
+    ╭─[<input_path>:44:46]
+ 43 │   };
+ 44 │   public func mapReturningFunction() : async Map.Map<Text, Nat> {
+    ·                                              ─────────┬────────
+    ·                                                       ╰── Only return primitive types from publicly exposed endpoints
+ 45 │     return null
     ╰────

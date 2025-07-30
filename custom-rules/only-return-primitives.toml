@@ -1,0 +1,18 @@
+name = "only-return-primitives"
+description = "Only return primitive types from publicly exposed endpoints"
+query = """
+(source_file
+  ;; Captures both actor class and actor declarations
+  (_
+   (obj_body
+    (dec_field
+      "public"
+      (func_dec
+        return_ty: (typ_annot (async_typ (path_typ (typ_path (type_identifier) @type-constructor)) @error))))))
+ (#any-of? @type-constructor
+   "List"
+   "Set"
+   "Map"
+   "Queue"
+   "Result"))
+"""

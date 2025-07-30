@@ -84,5 +84,5 @@ expression: lint_output
  35 │ │       case false {};
  36 │ ├─▶   };
     · ╰──── Don't switch on boolean values, use if instead
- 37 │     }
+ 37 │     
     ╰────
