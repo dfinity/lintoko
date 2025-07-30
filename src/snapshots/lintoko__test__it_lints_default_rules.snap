@@ -28,3 +28,61 @@ expression: lint_output
     ·      ╰── Do not use the `stable` keyword. It's implicit when using persistent actors.
  12 │ 
     ╰────
+
+  × [ERROR]: assign-plus
+    ╭─[<input_path>:23:3]
+ 22 │ 
+ 23 │   x := 1 + x;
+    ·   ─────┬────
+    ·        ╰── Use `x += 1` instead of reassigning the variable.
+ 24 │   x := x + 2;
+    ╰────
+
+  × [ERROR]: assign-plus
+    ╭─[<input_path>:24:3]
+ 23 │   x := 1 + x;
+ 24 │   x := x + 2;
+    ·   ─────┬────
+    ·        ╰── Use `x += 2` instead of reassigning the variable.
+ 25 │   x := x - 1;
+    ╰────
+
+  × [ERROR]: assign-minus
+    ╭─[<input_path>:25:3]
+ 24 │   x := x + 2;
+ 25 │   x := x - 1;
+    ·   ─────┬────
+    ·        ╰── Use `x -= 1` instead of reassigning the variable
+ 26 │   x := 1 - x;
+    ╰────
+
+  × [ERROR]: pun-fields
+    ╭─[<input_path>:28:13]
+ 27 │ 
+ 28 │   let _ = { field = field };
+    ·             ──────┬──────
+    ·                   ╰── Use field punning to to avoid repetition: Replace `{ field = field }` with `{ field }`
+ 29 │   let _ = switch _ {
+    ╰────
+
+  × [ERROR]: no-bool-switch
+    ╭─[<input_path>:29:11]
+ 28 │       let _ = { field = field };
+ 29 │ ╭─▶   let _ = switch _ {
+ 30 │ │       case (false) {};
+ 31 │ │       case (true) {};
+ 32 │ ├─▶   };
+    · ╰──── Don't switch on boolean values, use if instead
+ 33 │       let _ = switch _ {
+    ╰────
+
+  × [ERROR]: no-bool-switch
+    ╭─[<input_path>:33:11]
+ 32 │       };
+ 33 │ ╭─▶   let _ = switch _ {
+ 34 │ │       case true {};
+ 35 │ │       case false {};
+ 36 │ ├─▶   };
+    · ╰──── Don't switch on boolean values, use if instead
+ 37 │     }
+    ╰────

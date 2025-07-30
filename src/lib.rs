@@ -22,6 +22,14 @@ pub fn default_rules() -> Vec<Rule> {
             .expect("Failed to parse no-stable rule"),
         toml::from_str(include_str!("../default-rules/only-persistent-actor.toml"))
             .expect("Failed to parse only-persistent-actor rule"),
+        toml::from_str(include_str!("../default-rules/pun-fields.toml"))
+            .expect("Failed to parse pun-fields rule"),
+        toml::from_str(include_str!("../default-rules/no-bool-switch.toml"))
+            .expect("Failed to parse no-bool-switch rule"),
+        toml::from_str(include_str!("../default-rules/assign-plus.toml"))
+            .expect("Failed to parse assign-plus rule"),
+        toml::from_str(include_str!("../default-rules/assign-minus.toml"))
+            .expect("Failed to parse assign-minus rule"),
     ]
 }
 
