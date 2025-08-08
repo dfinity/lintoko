@@ -1,5 +1,7 @@
 name = "unneeded-return"
 description = "unneeded return statement. You can remove the `return`"
+# This is a bit simplistic in that it won't spot nested ifs or switches, but it covers the first 80%.
+# Doing this fully would require implementing recursive queries
 query = """
 (func_dec (block_exp (exp_dec (return_exp)) @error @trailing))
 (func_dec (return_exp) @error)
