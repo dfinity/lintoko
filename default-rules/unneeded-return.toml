@@ -1,0 +1,20 @@
+name = "unneeded-return"
+description = "unneeded return statement. You can remove the `return`"
+query = """
+(func_dec (block_exp (exp_dec (return_exp)) @error @trailing))
+(func_dec (return_exp) @error)
+
+(func_dec (block_exp (exp_dec (if_exp
+  then: (block_exp (exp_dec (return_exp)) @error @trailing))) @trailing))
+(func_dec (block_exp (exp_dec (if_exp
+  then: (return_exp) @error)) @trailing))
+(func_dec (block_exp (exp_dec (if_exp
+  else: (block_exp (exp_dec (return_exp)) @error @trailing))) @trailing))
+(func_dec (block_exp (exp_dec (if_exp
+  else: (return_exp) @error)) @trailing))
+
+(func_dec (block_exp (exp_dec (switch_exp
+  (case (return_exp) @error))) @trailing))
+(func_dec (block_exp (exp_dec (switch_exp
+  (case (block_exp (exp_dec (return_exp)) @error @trailing)))) @trailing))
+"""

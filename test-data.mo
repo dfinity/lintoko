@@ -36,15 +36,48 @@ shared (msg) actor class() {
   };
 
   public func listReturningFunction() : async List<Text> {
-    return null
+    null
   };
   public func setReturningFunction() : async Set.Set<Text> {
-    return null
+    null
   };
   public func mapReturningFunction() : async Map.Map<Text, Nat> {
-    return null
+    null
   };
   public func arrayReturningFunction() : async [Text] {
-    return null
+    null
+  };
+
+  func neededReturn() {
+    return 10;
+    20
+  };
+
+  func unneededReturn() {
+    return 10
+  };
+  func unneededReturn() = return 10;
+
+  func unneededReturn() {
+    if (true) {
+      return 4;
+    } else {
+      return 5;
+      20;
+    };
+  };
+  func unneededReturn() {
+    if (true) return 4
+    else {
+      return 5;
+      20;
+    };
+  };
+
+  func unneededReturn() {
+    switch (true) {
+      case 1 return 40;
+      case 2 { return 40; };
+    };
   };
 }

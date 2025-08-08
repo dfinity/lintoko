@@ -1,5 +1,7 @@
 # Unreleased
 
+- feat: lints unneeded returns
+
 # 0.2.1
 - chore: Updates release process
 

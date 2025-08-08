@@ -30,6 +30,8 @@ pub fn default_rules() -> Vec<Rule> {
             .expect("Failed to parse assign-plus rule"),
         toml::from_str(include_str!("../default-rules/assign-minus.toml"))
             .expect("Failed to parse assign-minus rule"),
+        toml::from_str(include_str!("../default-rules/unneeded-return.toml"))
+            .expect("Failed to parse unneeded-return rule"),
     ]
 }
 
@@ -83,12 +85,19 @@ fn apply_rule(rule: &Rule, tree: Node, input: &str) -> Result<Vec<Report>> {
         )
     })?;
     let filter_capture_index = query.capture_index_for_name("filter");
+    let trailing_capture_index = query.capture_index_for_name("trailing");
 
     let mut cursor = QueryCursor::new();
     let mut matches = cursor.matches(&query, tree, input.as_bytes());
     let mut filtered: HashSet<Range> = HashSet::new();
     let mut errors = Vec::new();
     while let Some(m) = matches.next() {
+        // Works around a tree-sitter bug that doesn't let us use trailing anchors: https://github.com/tree-sitter/tree-sitter/issues/4558
+        if let Some(trailing_capture_index) = trailing_capture_index {
+            if m.nodes_for_capture_index(trailing_capture_index).any(|n| n.next_named_sibling().is_some()) {
+                continue;
+            }
+        };
         for error_node in m.nodes_for_capture_index(error_capture_index) {
             // NOTE: We have to use `to_vec` here, or tree-sitter will silently swap the captures under our feet.
             errors.push((error_node.range(), m.captures.to_vec()));

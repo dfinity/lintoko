@@ -86,3 +86,57 @@ expression: lint_output
     · ╰──── Don't switch on boolean values, use if instead
  37 │     
     ╰────
+
+  × [ERROR]: unneeded-return
+    ╭─[<input_path>:57:5]
+ 56 │   func unneededReturn() {
+ 57 │     return 10
+    ·     ────┬────
+    ·         ╰── unneeded return statement. You can remove the `return`
+ 58 │   };
+    ╰────
+
+  × [ERROR]: unneeded-return
+    ╭─[<input_path>:59:27]
+ 58 │   };
+ 59 │   func unneededReturn() = return 10;
+    ·                           ────┬────
+    ·                               ╰── unneeded return statement. You can remove the `return`
+ 60 │ 
+    ╰────
+
+  × [ERROR]: unneeded-return
+    ╭─[<input_path>:63:7]
+ 62 │     if (true) {
+ 63 │       return 4;
+    ·       ────┬───
+    ·           ╰── unneeded return statement. You can remove the `return`
+ 64 │     } else {
+    ╰────
+
+  × [ERROR]: unneeded-return
+    ╭─[<input_path>:70:15]
+ 69 │   func unneededReturn() {
+ 70 │     if (true) return 4
+    ·               ────┬───
+    ·                   ╰── unneeded return statement. You can remove the `return`
+ 71 │     else {
+    ╰────
+
+  × [ERROR]: unneeded-return
+    ╭─[<input_path>:79:14]
+ 78 │     switch (true) {
+ 79 │       case 1 return 40;
+    ·              ────┬────
+    ·                  ╰── unneeded return statement. You can remove the `return`
+ 80 │       case 2 { return 40; };
+    ╰────
+
+  × [ERROR]: unneeded-return
+    ╭─[<input_path>:80:16]
+ 79 │       case 1 return 40;
+ 80 │       case 2 { return 40; };
+    ·                ────┬────
+    ·                    ╰── unneeded return statement. You can remove the `return`
+ 81 │     };
+    ╰────

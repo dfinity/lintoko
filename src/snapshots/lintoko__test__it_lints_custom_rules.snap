@@ -155,7 +155,7 @@ expression: lint_output
  38 │   public func listReturningFunction() : async List<Text> {
     ·                                               ─────┬────
     ·                                                    ╰── Only return primitive types from publicly exposed endpoints
- 39 │     return null
+ 39 │     null
     ╰────
 
   × [ERROR]: only-return-primitives
@@ -164,7 +164,7 @@ expression: lint_output
  41 │   public func setReturningFunction() : async Set.Set<Text> {
     ·                                              ──────┬──────
     ·                                                    ╰── Only return primitive types from publicly exposed endpoints
- 42 │     return null
+ 42 │     null
     ╰────
 
   × [ERROR]: only-return-primitives
@@ -173,5 +173,59 @@ expression: lint_output
  44 │   public func mapReturningFunction() : async Map.Map<Text, Nat> {
     ·                                              ─────────┬────────
     ·                                                       ╰── Only return primitive types from publicly exposed endpoints
- 45 │     return null
+ 45 │     null
+    ╰────
+
+  × [ERROR]: unneeded-return
+    ╭─[<input_path>:57:5]
+ 56 │   func unneededReturn() {
+ 57 │     return 10
+    ·     ────┬────
+    ·         ╰── unneeded return statement. You can remove the `return`
+ 58 │   };
+    ╰────
+
+  × [ERROR]: unneeded-return
+    ╭─[<input_path>:59:27]
+ 58 │   };
+ 59 │   func unneededReturn() = return 10;
+    ·                           ────┬────
+    ·                               ╰── unneeded return statement. You can remove the `return`
+ 60 │ 
+    ╰────
+
+  × [ERROR]: unneeded-return
+    ╭─[<input_path>:63:7]
+ 62 │     if (true) {
+ 63 │       return 4;
+    ·       ────┬───
+    ·           ╰── unneeded return statement. You can remove the `return`
+ 64 │     } else {
+    ╰────
+
+  × [ERROR]: unneeded-return
+    ╭─[<input_path>:70:15]
+ 69 │   func unneededReturn() {
+ 70 │     if (true) return 4
+    ·               ────┬───
+    ·                   ╰── unneeded return statement. You can remove the `return`
+ 71 │     else {
+    ╰────
+
+  × [ERROR]: unneeded-return
+    ╭─[<input_path>:79:14]
+ 78 │     switch (true) {
+ 79 │       case 1 return 40;
+    ·              ────┬────
+    ·                  ╰── unneeded return statement. You can remove the `return`
+ 80 │       case 2 { return 40; };
+    ╰────
+
+  × [ERROR]: unneeded-return
+    ╭─[<input_path>:80:16]
+ 79 │       case 1 return 40;
+ 80 │       case 2 { return 40; };
+    ·                ────┬────
+    ·                    ╰── unneeded return statement. You can remove the `return`
+ 81 │     };
     ╰────
