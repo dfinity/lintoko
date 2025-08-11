@@ -2,10 +2,10 @@ use std::{collections::HashSet, fs, io::Write, path::Path};
 
 use anyhow::{Context, Result, anyhow};
 use miette::{LabeledSpan, NamedSource, Report, Severity, miette};
+use regex::Regex;
 use serde::Deserialize;
 use tracing::debug;
 use tree_sitter::{Node, Parser, Query, QueryCapture, QueryCursor, Range, StreamingIterator};
-use regex::Regex;
 
 #[derive(Debug, Deserialize)]
 pub struct Rule {
@@ -57,7 +57,12 @@ pub fn load_rules_from_directory(dir: &Path) -> Result<Vec<Rule>> {
 }
 
 /// Allows mentioning captures in rule descriptions, and templates them with the actual captures when reporting errors.
-fn template_description(template: &str, query: &Query, captures: &[QueryCapture<'_>], input: &str) -> Result<String> {
+fn template_description(
+    template: &str,
+    query: &Query,
+    captures: &[QueryCapture<'_>],
+    input: &str,
+) -> Result<String> {
     let re = Regex::new(r"@([a-z-]+)").unwrap();
     let mut new = String::with_capacity(template.len());
     let mut last_match = 0;
@@ -68,7 +73,12 @@ fn template_description(template: &str, query: &Query, captures: &[QueryCapture<
         let capture = captures.iter().find(|c| query.capture_names()[c.index as usize] == name).with_context(|| {
             anyhow!("Failed to find capture with name '{name}', when templating error description:\n\n'{template}'")
         })?;
-        new.push_str(capture.node.utf8_text(input.as_bytes()).context("Non utf-8 text input")?);
+        new.push_str(
+            capture
+                .node
+                .utf8_text(input.as_bytes())
+                .context("Non utf-8 text input")?,
+        );
         last_match = m.end();
     }
     new.push_str(&template[last_match..]);
@@ -93,10 +103,11 @@ fn apply_rule(rule: &Rule, tree: Node, input: &str) -> Result<Vec<Report>> {
     let mut errors = Vec::new();
     while let Some(m) = matches.next() {
         // Works around a tree-sitter bug that doesn't let us use trailing anchors: https://github.com/tree-sitter/tree-sitter/issues/4558
-        if let Some(trailing_capture_index) = trailing_capture_index {
-            if m.nodes_for_capture_index(trailing_capture_index).any(|n| n.next_named_sibling().is_some()) {
-                continue;
-            }
+        if let Some(trailing_capture_index) = trailing_capture_index
+            && m.nodes_for_capture_index(trailing_capture_index)
+                .any(|n| n.next_named_sibling().is_some())
+        {
+            continue;
         };
         for error_node in m.nodes_for_capture_index(error_capture_index) {
             // NOTE: We have to use `to_vec` here, or tree-sitter will silently swap the captures under our feet.
