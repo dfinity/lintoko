@@ -35,6 +35,11 @@ shared (msg) actor class() {
     case false {};
   };
 
+  let _ = switch _ {
+    case (true, _) {};
+    case (_, true) {};
+  };
+
   public func listReturningFunction() : async List<Text> {
     null
   };

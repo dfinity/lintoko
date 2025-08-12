@@ -2,8 +2,8 @@ name = "no-bool-switch"
 description = "Don't switch on boolean values, use if instead"
 query = """
 (switch_exp
- (case
-  [(tup_pat (lit_pat (bool_literal)))
+ (case [
    (lit_pat (bool_literal))
-  ])) @error
+   (tup_pat . (lit_pat (bool_literal)) @trailing)
+   ])) @error
 """

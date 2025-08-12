@@ -120,9 +120,14 @@ fn apply_rule(rule: &Rule, tree: Node, input: &str) -> Result<Vec<Report>> {
             }
         }
     }
+    let mut seen = HashSet::new();
     let mut diagnostics = vec![];
     for (range, captures) in errors {
         if filtered.contains(&range) {
+            continue;
+        }
+        // Avoid reporting the same diagnostic twice on the same range
+        if !seen.insert(range) {
             continue;
         }
         let description = template_description(&rule.description, &query, &captures, input)?;
