@@ -1,5 +1,6 @@
 # Unreleased
 
+# 0.3.2
 - fix: Don't suggest punning for var fields
 
 # 0.3.1
