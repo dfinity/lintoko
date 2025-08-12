@@ -9,13 +9,20 @@ Download the latest release from [GitHub](https://github.com/dfinity/lintoko/rel
 ## Running
 
 ```bash
+# Linting all Motoko files underneath the current directory
+lintoko
+
+# Linting a single file
 lintoko src/actor.mo
+
+# Linting all files in the `src` and `test` directories
+lintoko src test
 ```
 
-Specify custom rules with the `-r` flag. The tool will look for rules in the specified directory.
+Specify custom rules with the `-r` flag. The tool will look for rules in the specified directory. You can pass multiple directories
 
 ```bash
-lintoko -r custom-rules/ src/actor.mo
+lintoko -r custom-rules -r more-rules
 ```
 
 ## Defining Rules

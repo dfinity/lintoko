@@ -145,14 +145,14 @@ fn apply_rule(rule: &Rule, tree: Node, input: &str) -> Result<Vec<Report>> {
     Ok(diagnostics)
 }
 
-pub fn lint_file(path: &str, input: &str, rules: Vec<Rule>, mut out: impl Write) -> Result<usize> {
+pub fn lint_file(path: &str, input: &str, rules: &[Rule], mut out: impl Write) -> Result<usize> {
     let mut parser = Parser::new();
     parser
         .set_language(&tree_sitter_motoko::LANGUAGE.into())
         .expect("Error loading Motoko grammar");
     let tree = parser.parse(input.as_bytes(), None).unwrap();
     let mut diagnostics = Vec::new();
-    for rule in &rules {
+    for rule in rules {
         diagnostics.extend(apply_rule(rule, tree.root_node(), input)?);
     }
     let count = diagnostics.len();
@@ -174,7 +174,7 @@ mod test {
         let err_count = lint_file(
             "<input_path>",
             include_str!("../test-data.mo"),
-            vec![],
+            &[],
             &mut out,
         )
         .unwrap();
@@ -192,7 +192,7 @@ mod test {
         let _err_count = lint_file(
             "<input_path>",
             include_str!("../test-data.mo"),
-            rules,
+            &rules,
             &mut out,
         )
         .unwrap();
@@ -211,7 +211,7 @@ mod test {
         let _err_count = lint_file(
             "<input_path>",
             include_str!("../test-data.mo"),
-            rules,
+            &rules,
             &mut out,
         )
         .unwrap();

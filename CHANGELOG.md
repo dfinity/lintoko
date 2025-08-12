@@ -1,4 +1,7 @@
 # Unreleased
+- feat: allows passing directories, files and globs to the CLI
+    Also makes it so no arguments expand to all Motoko files underneath
+    the current directory
 
 # 0.3.0
 - feat: lints unneeded returns
