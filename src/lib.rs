@@ -43,8 +43,10 @@ pub fn load_rule_from_file(path: &Path) -> Result<Rule> {
 
 pub fn load_rules_from_directory(dir: &Path) -> Result<Vec<Rule>> {
     let mut rules = vec![];
-    for entry in fs::read_dir(dir)? {
-        let entry = entry?;
+    let entries = fs::read_dir(dir)
+        .with_context(|| anyhow!("Failed to read rules from {}", dir.display()))?;
+    for entry in entries {
+        let entry = entry.with_context(|| anyhow!("Invalid entry"))?;
         let path = entry.path();
         if path.is_file() && path.extension().unwrap_or_default() == "toml" {
             debug!("Parsing extra rule at: {}", path.display());
