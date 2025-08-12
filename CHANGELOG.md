@@ -1,5 +1,7 @@
 # Unreleased
 
+- fix: print the correct version number when calling `lintoko --version`
+
 # 0.3.2
 - fix: Don't suggest punning for var fields
 

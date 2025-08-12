@@ -5,11 +5,9 @@ use std::path::PathBuf;
 use std::{collections::BTreeSet, path::Path};
 use tracing::{debug, level_filters::LevelFilter};
 
-/// Lint Motoko code according to a set of rules
+/// An extensible linter for Motoko
 #[derive(Parser, Debug)]
-#[command(name = "lintoko")]
-#[command(about = "A CLI tool for linting Motoko code")]
-#[command(version = "0.1.0")]
+#[command(about, version)]
 struct Args {
     /// Files, directories, or globs of Motoko files to lint
     #[arg(value_name = "INPUTS")]
