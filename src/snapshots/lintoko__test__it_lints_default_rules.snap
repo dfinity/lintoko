@@ -62,81 +62,81 @@ expression: lint_output
  28 │   let _ = { field = field };
     ·             ──────┬──────
     ·                   ╰── Use field punning to to avoid repetition: Replace `{ field = field }` with `{ field }`
- 29 │   let _ = switch _ {
+ 29 │   let _ = { var dontPun = dontPun };
     ╰────
 
   × [ERROR]: no-bool-switch
-    ╭─[<input_path>:29:11]
- 28 │       let _ = { field = field };
- 29 │ ╭─▶   let _ = switch _ {
- 30 │ │       case (false) {};
- 31 │ │       case (true) {};
- 32 │ ├─▶   };
+    ╭─[<input_path>:30:11]
+ 29 │       let _ = { var dontPun = dontPun };
+ 30 │ ╭─▶   let _ = switch _ {
+ 31 │ │       case (false) {};
+ 32 │ │       case (true) {};
+ 33 │ ├─▶   };
     · ╰──── Don't switch on boolean values, use if instead
- 33 │       let _ = switch _ {
+ 34 │       let _ = switch _ {
     ╰────
 
   × [ERROR]: no-bool-switch
-    ╭─[<input_path>:33:11]
- 32 │       };
- 33 │ ╭─▶   let _ = switch _ {
- 34 │ │       case true {};
- 35 │ │       case false {};
- 36 │ ├─▶   };
+    ╭─[<input_path>:34:11]
+ 33 │       };
+ 34 │ ╭─▶   let _ = switch _ {
+ 35 │ │       case true {};
+ 36 │ │       case false {};
+ 37 │ ├─▶   };
     · ╰──── Don't switch on boolean values, use if instead
- 37 │     
+ 38 │     
     ╰────
 
   × [ERROR]: unneeded-return
-    ╭─[<input_path>:62:5]
- 61 │   func unneededReturn() {
- 62 │     return 10
+    ╭─[<input_path>:63:5]
+ 62 │   func unneededReturn() {
+ 63 │     return 10
     ·     ────┬────
     ·         ╰── unneeded return statement. You can remove the `return`
- 63 │   };
+ 64 │   };
     ╰────
 
   × [ERROR]: unneeded-return
-    ╭─[<input_path>:64:27]
- 63 │   };
- 64 │   func unneededReturn() = return 10;
+    ╭─[<input_path>:65:27]
+ 64 │   };
+ 65 │   func unneededReturn() = return 10;
     ·                           ────┬────
     ·                               ╰── unneeded return statement. You can remove the `return`
- 65 │ 
+ 66 │ 
     ╰────
 
   × [ERROR]: unneeded-return
-    ╭─[<input_path>:68:7]
- 67 │     if (true) {
- 68 │       return 4;
+    ╭─[<input_path>:69:7]
+ 68 │     if (true) {
+ 69 │       return 4;
     ·       ────┬───
     ·           ╰── unneeded return statement. You can remove the `return`
- 69 │     } else {
+ 70 │     } else {
     ╰────
 
   × [ERROR]: unneeded-return
-    ╭─[<input_path>:75:15]
- 74 │   func unneededReturn() {
- 75 │     if (true) return 4
+    ╭─[<input_path>:76:15]
+ 75 │   func unneededReturn() {
+ 76 │     if (true) return 4
     ·               ────┬───
     ·                   ╰── unneeded return statement. You can remove the `return`
- 76 │     else {
+ 77 │     else {
     ╰────
 
   × [ERROR]: unneeded-return
-    ╭─[<input_path>:84:14]
- 83 │     switch (true) {
- 84 │       case 1 return 40;
+    ╭─[<input_path>:85:14]
+ 84 │     switch (true) {
+ 85 │       case 1 return 40;
     ·              ────┬────
     ·                  ╰── unneeded return statement. You can remove the `return`
- 85 │       case 2 { return 40; };
+ 86 │       case 2 { return 40; };
     ╰────
 
   × [ERROR]: unneeded-return
-    ╭─[<input_path>:85:16]
- 84 │       case 1 return 40;
- 85 │       case 2 { return 40; };
+    ╭─[<input_path>:86:16]
+ 85 │       case 1 return 40;
+ 86 │       case 2 { return 40; };
     ·                ────┬────
     ·                    ╰── unneeded return statement. You can remove the `return`
- 86 │     };
+ 87 │     };
     ╰────

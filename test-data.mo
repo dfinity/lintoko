@@ -26,6 +26,7 @@ shared (msg) actor class() {
   x := 1 - x;
 
   let _ = { field = field };
+  let _ = { var dontPun = dontPun };
   let _ = switch _ {
     case (false) {};
     case (true) {};

@@ -1,5 +1,7 @@
 # Unreleased
 
+- fix: Don't suggest punning for var fields
+
 # 0.3.1
 - feat: allows passing directories, files and globs to the CLI
     Also makes it so no arguments expand to all Motoko files underneath
