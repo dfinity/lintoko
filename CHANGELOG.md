@@ -1,6 +1,8 @@
 # Unreleased
 
+# 0.3.0
 - feat: lints unneeded returns
+- fix: make linting for switches over booleans more precise (#2)
 
 # 0.2.1
 - chore: Updates release process
