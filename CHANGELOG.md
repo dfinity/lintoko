@@ -1,5 +1,6 @@
 # Unreleased
 
+- feat: lint casing for type and function definitions
 - fix: print the correct version number when calling `lintoko --version`
 
 # 0.3.2

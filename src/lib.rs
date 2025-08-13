@@ -32,6 +32,10 @@ pub fn default_rules() -> Vec<Rule> {
             .expect("Failed to parse assign-minus rule"),
         toml::from_str(include_str!("../default-rules/unneeded-return.toml"))
             .expect("Failed to parse unneeded-return rule"),
+        toml::from_str(include_str!("../default-rules/case-types.toml"))
+            .expect("Failed to parse case-types rule"),
+        toml::from_str(include_str!("../default-rules/case-functions.toml"))
+            .expect("Failed to parse case-functions rule"),
     ]
 }
 

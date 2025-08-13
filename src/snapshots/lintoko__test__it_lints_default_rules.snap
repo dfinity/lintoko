@@ -140,3 +140,39 @@ expression: lint_output
     ·                    ╰── unneeded return statement. You can remove the `return`
  87 │     };
     ╰────
+
+  × [ERROR]: case-types
+    ╭─[<input_path>:90:8]
+ 89 │ 
+ 90 │   type lowerCase = Nat;
+    ·        ────┬────
+    ·            ╰── Types should be capitalized and use CamelCase.
+ 91 │   type Snake_case = Nat;
+    ╰────
+
+  × [ERROR]: case-types
+    ╭─[<input_path>:91:8]
+ 90 │   type lowerCase = Nat;
+ 91 │   type Snake_case = Nat;
+    ·        ─────┬────
+    ·             ╰── Types should be capitalized and use CamelCase.
+ 92 │   type CamelCase = Nat;
+    ╰────
+
+  × [ERROR]: case-functions
+    ╭─[<input_path>:94:8]
+ 93 │ 
+ 94 │   func UpperCase() {};
+    ·        ────┬────
+    ·            ╰── Functions should start lower case and use camelCase.
+ 95 │   func snake_case() {};
+    ╰────
+
+  × [ERROR]: case-functions
+    ╭─[<input_path>:95:8]
+ 94 │   func UpperCase() {};
+ 95 │   func snake_case() {};
+    ·        ─────┬────
+    ·             ╰── Functions should start lower case and use camelCase.
+ 96 │   func _hiddenIsFine() {};
+    ╰────

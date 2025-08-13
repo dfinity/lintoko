@@ -86,4 +86,12 @@ shared (msg) actor class() {
       case 2 { return 40; };
     };
   };
+
+  type lowerCase = Nat;
+  type Snake_case = Nat;
+  type CamelCase = Nat;
+
+  func UpperCase() {};
+  func snake_case() {};
+  func _hiddenIsFine() {};
 }
