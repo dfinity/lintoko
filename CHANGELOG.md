@@ -1,7 +1,9 @@
 # Unreleased
 
+# 0.4.0
 - feat: lint casing for type and function definitions
 - fix: print the correct version number when calling `lintoko --version`
+- chore: infra/license/etc changes to support Open Sourcing
 
 # 0.3.2
 - fix: Don't suggest punning for var fields
