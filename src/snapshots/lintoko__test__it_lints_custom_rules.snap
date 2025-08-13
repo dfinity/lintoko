@@ -245,23 +245,77 @@ expression: lint_output
  91 │   type Snake_case = Nat;
     ·        ─────┬────
     ·             ╰── Types should be capitalized and use CamelCase.
- 92 │   type CamelCase = Nat;
+ 92 │   type CamelCase<lowerCase, Snake_case> = Nat;
     ╰────
 
-  × [ERROR]: case-functions
-    ╭─[<input_path>:94:8]
- 93 │ 
- 94 │   func UpperCase() {};
-    ·        ────┬────
-    ·            ╰── Functions should start lower case and use camelCase.
- 95 │   func snake_case() {};
+  × [ERROR]: case-types
+    ╭─[<input_path>:92:18]
+ 91 │   type Snake_case = Nat;
+ 92 │   type CamelCase<lowerCase, Snake_case> = Nat;
+    ·                  ────┬────
+    ·                      ╰── Types should be capitalized and use CamelCase.
+ 93 │   type CamelCase = Nat;
+    ╰────
+
+  × [ERROR]: case-types
+    ╭─[<input_path>:92:29]
+ 91 │   type Snake_case = Nat;
+ 92 │   type CamelCase<lowerCase, Snake_case> = Nat;
+    ·                             ─────┬────
+    ·                                  ╰── Types should be capitalized and use CamelCase.
+ 93 │   type CamelCase = Nat;
     ╰────
 
   × [ERROR]: case-functions
     ╭─[<input_path>:95:8]
- 94 │   func UpperCase() {};
- 95 │   func snake_case() {};
+ 94 │ 
+ 95 │   func UpperCase() {};
+    ·        ────┬────
+    ·            ╰── Functions should start lower case and use camelCase.
+ 96 │   func snake_case() {};
+    ╰────
+
+  × [ERROR]: case-functions
+    ╭─[<input_path>:96:8]
+ 95 │   func UpperCase() {};
+ 96 │   func snake_case() {};
     ·        ─────┬────
     ·             ╰── Functions should start lower case and use camelCase.
- 96 │   func _hiddenIsFine() {};
+ 97 │   func _hiddenIsFine() {};
     ╰────
+
+  × [ERROR]: case-types
+    ╭─[<input_path>:98:9]
+ 97 │   func _hiddenIsFine() {};
+ 98 │   class lowerCase() {};
+    ·         ────┬────
+    ·             ╰── Types should be capitalized and use CamelCase.
+ 99 │   class Snake_Cased_ish() {};
+    ╰────
+
+  × [ERROR]: case-types
+     ╭─[<input_path>:99:9]
+  98 │   class lowerCase() {};
+  99 │   class Snake_Cased_ish() {};
+     ·         ───────┬───────
+     ·                ╰── Types should be capitalized and use CamelCase.
+ 100 │   class CamelCase<lowerCase, Snake_case>() {};
+     ╰────
+
+  × [ERROR]: case-types
+     ╭─[<input_path>:100:19]
+  99 │   class Snake_Cased_ish() {};
+ 100 │   class CamelCase<lowerCase, Snake_case>() {};
+     ·                   ────┬────
+     ·                       ╰── Types should be capitalized and use CamelCase.
+ 101 │   class CamelCase<Camel, Case>() {};
+     ╰────
+
+  × [ERROR]: case-types
+     ╭─[<input_path>:100:30]
+  99 │   class Snake_Cased_ish() {};
+ 100 │   class CamelCase<lowerCase, Snake_case>() {};
+     ·                              ─────┬────
+     ·                                   ╰── Types should be capitalized and use CamelCase.
+ 101 │   class CamelCase<Camel, Case>() {};
+     ╰────

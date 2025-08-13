@@ -1,4 +1,5 @@
 # Unreleased
+- fix: also check casing on classes and type parameters
 
 # 0.4.0
 - feat: lint casing for type and function definitions
