@@ -1,7 +1,6 @@
 name = "case-types"
 description = "Types should be capitalized and use CamelCase."
 query = """
-(typ_dec (type_identifier) @error)
-(typ_dec (type_identifier) @ident @filter
- (#match? @ident "^[A-Z][a-zA-Z0-9]*$"))
+(typ_dec (type_identifier) @ident @error
+ (#not-match? @ident "^[A-Z][a-zA-Z0-9]*$"))
 """

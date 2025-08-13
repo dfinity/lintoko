@@ -1,7 +1,6 @@
 name = "case-functions"
 description = "Functions should start lower case and use camelCase."
 query = """
-(func_dec (identifier) @error)
-(func_dec (identifier) @ident @filter
- (#match? @ident "^[a-z_][a-zA-Z0-9]*$"))
+(func_dec (identifier) @ident @error
+ (#not-match? @ident "^[a-z_][a-zA-Z0-9]*$"))
 """
