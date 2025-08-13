@@ -4,7 +4,7 @@ An extensible linting tool for Motoko
 
 ## Installation
 
-Download the latest release from [GitHub](https://github.com/dfinity/lintoko/releases) and put it in your PATH.
+Download the latest release from [GitHub](https://github.com/dfinity/lintoko/releases)
 
 ## Running
 
@@ -37,7 +37,7 @@ query =  """
 """
 ```
 
-The "query" field contains a [Tree-sitter query](https://tree-sitter.github.io/tree-sitter/using-parsers/queries/1-syntax.html) that matches a parse tree produced by a [Motoko tree-sitter grammar](https://github.com/christoph-dfinity/tree-sitter-motoko).
+The "query" field contains a [Tree-sitter query](https://tree-sitter.github.io/tree-sitter/using-parsers/queries/1-syntax.html) that matches a parse tree produced by the [motoko tree-sitter grammar](https://github.com/christoph-dfinity/tree-sitter-motoko).
 Look at the rules in [`custom-rules`](./custom-rules) or [`default-rules`](./default-rules) for more complex examples.
 
 
