@@ -3,4 +3,15 @@ description = "Types should be capitalized and use CamelCase."
 query = """
 (typ_dec (type_identifier) @ident @error
  (#not-match? @ident "^[A-Z][a-zA-Z0-9]*$"))
+
+(typ_dec
+ (typ_params (typ_bind name: (type_identifier) @ident @error))
+ (#not-match? @ident "^[A-Z][a-zA-Z0-9]*$"))
+
+(class_dec (type_identifier)
+ (typ_params (typ_bind name: (type_identifier) @ident @error))
+ (#not-match? @ident "^[A-Z][a-zA-Z0-9]*$"))
+
+(class_dec (type_identifier) @ident @error
+ (#not-match? @ident "^[A-Z][a-zA-Z0-9]*$"))
 """
