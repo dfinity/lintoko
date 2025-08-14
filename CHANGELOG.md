@@ -1,5 +1,6 @@
 # Unreleased
 - fix: also check casing on classes and type parameters
+- feat: adds a textual output format that's easier to consume with AI or screen readers
 
 # 0.4.0
 - feat: lint casing for type and function definitions

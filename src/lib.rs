@@ -1,17 +1,35 @@
-use std::{collections::HashSet, fs, io::Write, path::Path};
-
 use anyhow::{Context, Result, anyhow};
-use miette::{LabeledSpan, NamedSource, Report, Severity, miette};
+use miette::{LabeledSpan, NamedSource, Severity, miette};
 use regex::Regex;
 use serde::Deserialize;
+use std::{collections::HashSet, fs, io::Write, path::Path};
 use tracing::debug;
 use tree_sitter::{Node, Parser, Query, QueryCapture, QueryCursor, Range, StreamingIterator};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum OutputFormat {
+    #[default]
+    Pretty,
+    Text,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct Config {
+    pub format: OutputFormat,
+}
 
 #[derive(Debug, Deserialize)]
 pub struct Rule {
     name: String,
     description: String,
     query: String,
+}
+
+#[derive(Debug, Clone)]
+struct RawDiagnostic {
+    rule: String,
+    description: String,
+    range: Range,
 }
 
 pub fn default_rules() -> Vec<Rule> {
@@ -91,7 +109,7 @@ fn template_description(
     Ok(new)
 }
 
-fn apply_rule(rule: &Rule, tree: Node, input: &str) -> Result<Vec<Report>> {
+fn apply_rule(rule: &Rule, tree: Node, input: &str) -> Result<Vec<RawDiagnostic>> {
     let query = Query::new(&tree_sitter_motoko::LANGUAGE.into(), &rule.query)
         .with_context(|| format!("Failed to create query for rule '{}'", rule.name))?;
     let error_capture_index = query.capture_index_for_name("error").with_context(|| {
@@ -137,21 +155,64 @@ fn apply_rule(rule: &Rule, tree: Node, input: &str) -> Result<Vec<Report>> {
             continue;
         }
         let description = template_description(&rule.description, &query, &captures, input)?;
-        let diagnostic = miette!(
-            severity = Severity::Error,
-            labels = vec![LabeledSpan::new_primary_with_span(
-                Some(description),
-                (range.start_byte, range.end_byte - range.start_byte)
-            )],
-            "[ERROR]: {}",
-            rule.name
-        );
+        let diagnostic = RawDiagnostic {
+            rule: rule.name.to_string(),
+            description,
+            range,
+        };
         diagnostics.push(diagnostic);
     }
     Ok(diagnostics)
 }
 
-pub fn lint_file(path: &str, input: &str, rules: &[Rule], mut out: impl Write) -> Result<usize> {
+fn print_pretty_diagnostic(path: &str, source_code: &str, diagnostic: RawDiagnostic) -> String {
+    let source_code = NamedSource::new(path, source_code.to_string());
+    let report = miette!(
+        severity = Severity::Error,
+        labels = vec![LabeledSpan::new_primary_with_span(
+            Some(diagnostic.description),
+            (
+                diagnostic.range.start_byte,
+                diagnostic.range.end_byte - diagnostic.range.start_byte
+            )
+        )],
+        "[ERROR]: {}",
+        diagnostic.rule
+    )
+    .with_source_code(source_code);
+    format!("{report:?}")
+}
+
+fn print_text_diagnostic(path: &str, source_code: &str, diagnostic: RawDiagnostic) -> String {
+    let mut snippet = String::new();
+    let start_line = diagnostic.range.start_point.row + 1;
+    let end_line = diagnostic.range.end_point.row + 1;
+    let max_line_chars = end_line.ilog(10);
+    let snippet_lines = source_code
+        .lines()
+        .skip(start_line - 1)
+        .take(end_line - start_line + 1);
+    for (i, line) in snippet_lines.enumerate() {
+        let l = start_line + i;
+        let line_chars = l.ilog(10);
+        let padding = " ".repeat((max_line_chars - line_chars) as usize);
+        snippet += &format!("{padding}{l} {line}\n");
+    }
+
+    let start = format!("{start_line}:{}", diagnostic.range.start_point.column);
+    format!(
+        "{path}:{start} Error: {description}\nFound in:\n{snippet}",
+        description = diagnostic.description
+    )
+}
+
+pub fn lint_file(
+    config: &Config,
+    path: &str,
+    input: &str,
+    rules: &[Rule],
+    mut out: impl Write,
+) -> Result<usize> {
     let mut parser = Parser::new();
     parser
         .set_language(&tree_sitter_motoko::LANGUAGE.into())
@@ -162,10 +223,13 @@ pub fn lint_file(path: &str, input: &str, rules: &[Rule], mut out: impl Write) -
         diagnostics.extend(apply_rule(rule, tree.root_node(), input)?);
     }
     let count = diagnostics.len();
-    diagnostics.sort_by_key(|d| d.labels().unwrap().next().unwrap().offset());
+    diagnostics.sort_by_key(|d| d.range.start_byte);
     for diagnostic in diagnostics {
-        let pretty = diagnostic.with_source_code(NamedSource::new(path, input.to_string()));
-        writeln!(&mut out, "{pretty:?}")?
+        let output = match config.format {
+            OutputFormat::Pretty => print_pretty_diagnostic(path, input, diagnostic),
+            OutputFormat::Text => print_text_diagnostic(path, input, diagnostic),
+        };
+        writeln!(&mut out, "{output}")?
     }
     Ok(count)
 }
@@ -178,6 +242,7 @@ mod test {
     fn no_rules() {
         let mut out: Vec<u8> = vec![];
         let err_count = lint_file(
+            &Config::default(),
             "<input_path>",
             include_str!("../test-data.mo"),
             &[],
@@ -196,6 +261,7 @@ mod test {
         }
         let rules = default_rules();
         let _err_count = lint_file(
+            &Config::default(),
             "<input_path>",
             include_str!("../test-data.mo"),
             &rules,
@@ -215,6 +281,29 @@ mod test {
         let mut rules = default_rules();
         rules.extend(load_rules_from_directory(Path::new("custom-rules")).unwrap());
         let _err_count = lint_file(
+            &Config::default(),
+            "<input_path>",
+            include_str!("../test-data.mo"),
+            &rules,
+            &mut out,
+        )
+        .unwrap();
+        let lint_output = str::from_utf8(&out).unwrap();
+        insta::assert_snapshot!(lint_output);
+    }
+
+    #[test]
+    fn it_lints_with_textual_output() {
+        let mut out: Vec<u8> = vec![];
+        unsafe {
+            std::env::set_var("NO_COLOR", "1");
+        }
+        let mut rules = default_rules();
+        rules.extend(load_rules_from_directory(Path::new("custom-rules")).unwrap());
+        let _err_count = lint_file(
+            &Config {
+                format: OutputFormat::Text,
+            },
             "<input_path>",
             include_str!("../test-data.mo"),
             &rules,
