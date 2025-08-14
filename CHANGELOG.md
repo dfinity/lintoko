@@ -1,4 +1,6 @@
 # Unreleased
+
+# 0.4.1
 - fix: also check casing on classes and type parameters
 - feat: adds a textual output format that's easier to consume with AI or screen readers
 
