@@ -1,0 +1,149 @@
+---
+source: src/lib.rs
+expression: lint_output
+---
+<input_path>:1:0 Error: Do not use the Result pattern. Use Runtime.trap() instead.
+Found in:
+1 import Result "mo:base/Result";
+
+<input_path>:3:0 Error: Do not use data structures from pure/*. Use imperative structures instead.
+Found in:
+3 import PureList "mo:core/pure/List";
+
+<input_path>:5:7 Error: Do not use `shared(msg)`. Use `shared({ caller })` instead.
+Found in:
+5 shared (msg) actor class() {
+
+<input_path>:5:13 Error: Only use persistent actors. Change `actor` to `persistent actor`.
+Found in:
+5 shared (msg) actor class() {
+
+<input_path>:7:4 Error: Do not use let-else. Use a switch instead.
+Found in:
+7     let ?x = null else { return };
+
+<input_path>:10:2 Error: Do not use the `flexible` keyword. Use `transient` instead.
+Found in:
+10   flexible let flexibleLet = 42;
+
+<input_path>:11:2 Error: Do not use the `stable` keyword. It's implicit when using persistent actors.
+Found in:
+11   stable let stableLet = 42;
+
+<input_path>:15:15 Error: Do not use `shared(msg)`. Use `shared({ caller })` instead.
+Found in:
+15   public shared(msg) func sharedCaller() {};
+
+<input_path>:16:16 Error: Do not use `shared(msg)`. Use `shared({ caller })` instead.
+Found in:
+16   public shared msg func sharedCallerVar() {};
+
+<input_path>:21:2 Error: Only use `transient` for OrderedMap.Make, OrderedSet.Make, and Random.Finite
+Found in:
+21   transient let transientMap = OrderedMap.Make.Well<Nat>(Nat.compare);
+
+<input_path>:23:2 Error: Use `x += 1` instead of reassigning the variable.
+Found in:
+23   x := 1 + x;
+
+<input_path>:24:2 Error: Use `x += 2` instead of reassigning the variable.
+Found in:
+24   x := x + 2;
+
+<input_path>:25:2 Error: Use `x -= 1` instead of reassigning the variable
+Found in:
+25   x := x - 1;
+
+<input_path>:28:12 Error: Use field punning to to avoid repetition: Replace `{ field = field }` with `{ field }`
+Found in:
+28   let _ = { field = field };
+
+<input_path>:30:10 Error: Don't switch on boolean values, use if instead
+Found in:
+30   let _ = switch _ {
+31     case (false) {};
+32     case (true) {};
+33   };
+
+<input_path>:34:10 Error: Don't switch on boolean values, use if instead
+Found in:
+34   let _ = switch _ {
+35     case true {};
+36     case false {};
+37   };
+
+<input_path>:44:46 Error: Only return primitive types from publicly exposed endpoints
+Found in:
+44   public func listReturningFunction() : async List<Text> {
+
+<input_path>:47:45 Error: Only return primitive types from publicly exposed endpoints
+Found in:
+47   public func setReturningFunction() : async Set.Set<Text> {
+
+<input_path>:50:45 Error: Only return primitive types from publicly exposed endpoints
+Found in:
+50   public func mapReturningFunction() : async Map.Map<Text, Nat> {
+
+<input_path>:63:4 Error: unneeded return statement. You can remove the `return`
+Found in:
+63     return 10
+
+<input_path>:65:26 Error: unneeded return statement. You can remove the `return`
+Found in:
+65   func unneededReturn() = return 10;
+
+<input_path>:69:6 Error: unneeded return statement. You can remove the `return`
+Found in:
+69       return 4;
+
+<input_path>:76:14 Error: unneeded return statement. You can remove the `return`
+Found in:
+76     if (true) return 4
+
+<input_path>:85:13 Error: unneeded return statement. You can remove the `return`
+Found in:
+85       case 1 return 40;
+
+<input_path>:86:15 Error: unneeded return statement. You can remove the `return`
+Found in:
+86       case 2 { return 40; };
+
+<input_path>:90:7 Error: Types should be capitalized and use CamelCase.
+Found in:
+90   type lowerCase = Nat;
+
+<input_path>:91:7 Error: Types should be capitalized and use CamelCase.
+Found in:
+91   type Snake_case = Nat;
+
+<input_path>:92:17 Error: Types should be capitalized and use CamelCase.
+Found in:
+92   type CamelCase<lowerCase, Snake_case> = Nat;
+
+<input_path>:92:28 Error: Types should be capitalized and use CamelCase.
+Found in:
+92   type CamelCase<lowerCase, Snake_case> = Nat;
+
+<input_path>:95:7 Error: Functions should start lower case and use camelCase.
+Found in:
+95   func UpperCase() {};
+
+<input_path>:96:7 Error: Functions should start lower case and use camelCase.
+Found in:
+96   func snake_case() {};
+
+<input_path>:98:8 Error: Types should be capitalized and use CamelCase.
+Found in:
+98   class lowerCase() {};
+
+<input_path>:99:8 Error: Types should be capitalized and use CamelCase.
+Found in:
+99   class Snake_Cased_ish() {};
+
+<input_path>:100:18 Error: Types should be capitalized and use CamelCase.
+Found in:
+100   class CamelCase<lowerCase, Snake_case>() {};
+
+<input_path>:100:29 Error: Types should be capitalized and use CamelCase.
+Found in:
+100   class CamelCase<lowerCase, Snake_case>() {};

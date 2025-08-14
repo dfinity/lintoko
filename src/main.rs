@@ -1,5 +1,5 @@
 use anyhow::{Context, Result, anyhow, bail};
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use glob::glob_with;
 use std::path::PathBuf;
 use std::{collections::BTreeSet, path::Path};
@@ -17,9 +17,21 @@ struct Args {
     #[arg(short, long)]
     verbose: bool,
 
+    /// Output format
+    #[arg(short, long, value_enum, default_value_t=OutputFormat::Pretty)]
+    format: OutputFormat,
+
     /// Directories containing extra rules
     #[arg(short, long, value_name = "DIRECTORY")]
     rules: Vec<PathBuf>,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+enum OutputFormat {
+    /// Pretty graphical output
+    Pretty,
+    /// Text output
+    Text,
 }
 
 /// Expands passed input parameters (skips hidden directories, unless explicitly referenced)
@@ -64,6 +76,13 @@ fn main() -> Result<()> {
         .without_time()
         .init();
 
+    let config = lintoko::Config {
+        format: match args.format {
+            OutputFormat::Pretty => lintoko::OutputFormat::Pretty,
+            OutputFormat::Text => lintoko::OutputFormat::Text,
+        },
+    };
+
     let inputs = if args.inputs.is_empty() {
         vec!["**/*.mo".to_string()]
     } else {
@@ -89,6 +108,7 @@ fn main() -> Result<()> {
             .with_context(|| anyhow!("Failed to read file at '{}'", input.display()))?;
 
         error_count += lintoko::lint_file(
+            &config,
             input.to_string_lossy().as_ref(),
             &file_content,
             &rules,
