@@ -14,10 +14,6 @@ Found in:
 Found in:
 5 shared (msg) actor class() {
 
-<input_path>:5:13 Error: Only use persistent actors. Change `actor` to `persistent actor`.
-Found in:
-5 shared (msg) actor class() {
-
 <input_path>:7:4 Error: Do not use let-else. Use a switch instead.
 Found in:
 7     let ?x = null else { return };
