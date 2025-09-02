@@ -28,15 +28,6 @@ expression: lint_output
  6 │   func letElse() {
    ╰────
 
-  × [ERROR]: only-persistent-actor
-   ╭─[<input_path>:5:14]
- 4 │ 
- 5 │ shared (msg) actor class() {
-   ·              ──┬──
-   ·                ╰── Only use persistent actors. Change `actor` to `persistent actor`.
- 6 │   func letElse() {
-   ╰────
-
   × [ERROR]: no-let-else
    ╭─[<input_path>:7:5]
  6 │   func letElse() {
