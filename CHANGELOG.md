@@ -1,5 +1,6 @@
 # Unreleased
 
+# 0.4.2
 - fix: Don't error on non-persistent actors, the compiler takes care of that
 
 # 0.4.1
