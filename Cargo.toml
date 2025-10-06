@@ -1,6 +1,6 @@
 [package]
 name = "lintoko"
-version = "0.4.2"
+version = "0.4.3"
 edition = "2024"
 repository = "https://github.com/dfinity/lintoko"
 license = "Apache-2.0"

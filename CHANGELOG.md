@@ -1,5 +1,8 @@
 # Unreleased
 
+# 0.4.3
+- chore: updates tree-sitter version to support mixins and weak references
+
 # 0.4.2
 - fix: Don't error on non-persistent actors, the compiler takes care of that
 
