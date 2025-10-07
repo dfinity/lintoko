@@ -21,7 +21,9 @@ struct Args {
     #[arg(short, long, value_enum, default_value_t=OutputFormat::Pretty)]
     format: OutputFormat,
 
-    /// Directories containing extra rules
+    /// Directories containing extra rules.
+    ///
+    /// When passing a file path, will _only_ use the rule in that file
     #[arg(short, long, value_name = "DIRECTORY")]
     rules: Vec<PathBuf>,
 }
@@ -96,6 +98,11 @@ fn main() -> Result<()> {
 
     let mut rules = lintoko::default_rules();
     for dir in &args.rules {
+        if dir.is_file() {
+            debug!("Loading single rule from: {}", dir.display());
+            rules = vec![lintoko::load_rule_from_file(dir)?];
+            break;
+        }
         debug!("Loading rules from: {}", dir.display());
         rules.extend(lintoko::load_rules_from_directory(dir)?);
     }
