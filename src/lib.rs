@@ -46,6 +46,12 @@ pub fn default_rules() -> Vec<Rule> {
             .expect("Failed to parse assign-plus rule"),
         toml::from_str(include_str!("../default-rules/assign-minus.toml"))
             .expect("Failed to parse assign-minus rule"),
+        toml::from_str(include_str!("../default-rules/assign-multiply.toml"))
+            .expect("Failed to parse assign-multiply rule"),
+        toml::from_str(include_str!("../default-rules/assign-divide.toml"))
+            .expect("Failed to parse assign-divide rule"),
+        toml::from_str(include_str!("../default-rules/assign-concat.toml"))
+            .expect("Failed to parse assign-concat rule"),
         toml::from_str(include_str!("../default-rules/unneeded-return.toml"))
             .expect("Failed to parse unneeded-return rule"),
         toml::from_str(include_str!("../default-rules/case-types.toml"))

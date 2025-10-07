@@ -1,0 +1,10 @@
+name = "assign-concat"
+description = "Use `@var #= @other` instead of reassigning the variable"
+query = """
+((assign_exp_object (var_exp) @var
+  (bin_exp_object
+   left: (var_exp) @left_var
+   (bin_op "#")
+   right: _ @other)) @error
+  (#eq? @var @left_var))
+"""
