@@ -46,100 +46,116 @@ Found in:
 Found in:
 24   x := x + 2;
 
-<input_path>:25:2 Error: Use `x -= 1` instead of reassigning the variable
+<input_path>:26:2 Error: Use `x -= 1` instead of reassigning the variable
 Found in:
-25   x := x - 1;
+26   x := x - 1;
 
-<input_path>:28:12 Error: Use field punning to to avoid repetition: Replace `{ field = field }` with `{ field }`
+<input_path>:29:2 Error: Use `x *= 1` instead of reassigning the variable.
 Found in:
-28   let _ = { field = field };
+29   x := x * 1;
 
-<input_path>:30:10 Error: Don't switch on boolean values, use if instead
+<input_path>:30:2 Error: Use `x *= 1` instead of reassigning the variable.
 Found in:
-30   let _ = switch _ {
-31     case (false) {};
-32     case (true) {};
-33   };
+30   x := 1 * x;
 
-<input_path>:34:10 Error: Don't switch on boolean values, use if instead
+<input_path>:32:2 Error: Use `x /= 1` instead of reassigning the variable
 Found in:
-34   let _ = switch _ {
-35     case true {};
-36     case false {};
-37   };
+32   x := x / 1;
 
-<input_path>:44:46 Error: Only return primitive types from publicly exposed endpoints
+<input_path>:35:2 Error: Use `x #= "1"` instead of reassigning the variable
 Found in:
-44   public func listReturningFunction() : async List<Text> {
+35   x := x # "1";
 
-<input_path>:47:45 Error: Only return primitive types from publicly exposed endpoints
+<input_path>:38:12 Error: Use field punning to to avoid repetition: Replace `{ field = field }` with `{ field }`
 Found in:
-47   public func setReturningFunction() : async Set.Set<Text> {
+38   let _ = { field = field };
 
-<input_path>:50:45 Error: Only return primitive types from publicly exposed endpoints
+<input_path>:40:10 Error: Don't switch on boolean values, use if instead
 Found in:
-50   public func mapReturningFunction() : async Map.Map<Text, Nat> {
+40   let _ = switch _ {
+41     case (false) {};
+42     case (true) {};
+43   };
 
-<input_path>:63:4 Error: unneeded return statement. You can remove the `return`
+<input_path>:44:10 Error: Don't switch on boolean values, use if instead
 Found in:
-63     return 10
+44   let _ = switch _ {
+45     case true {};
+46     case false {};
+47   };
 
-<input_path>:65:26 Error: unneeded return statement. You can remove the `return`
+<input_path>:54:46 Error: Only return primitive types from publicly exposed endpoints
 Found in:
-65   func unneededReturn() = return 10;
+54   public func listReturningFunction() : async List<Text> {
 
-<input_path>:69:6 Error: unneeded return statement. You can remove the `return`
+<input_path>:57:45 Error: Only return primitive types from publicly exposed endpoints
 Found in:
-69       return 4;
+57   public func setReturningFunction() : async Set.Set<Text> {
 
-<input_path>:76:14 Error: unneeded return statement. You can remove the `return`
+<input_path>:60:45 Error: Only return primitive types from publicly exposed endpoints
 Found in:
-76     if (true) return 4
+60   public func mapReturningFunction() : async Map.Map<Text, Nat> {
 
-<input_path>:85:13 Error: unneeded return statement. You can remove the `return`
+<input_path>:73:4 Error: unneeded return statement. You can remove the `return`
 Found in:
-85       case 1 return 40;
+73     return 10
 
-<input_path>:86:15 Error: unneeded return statement. You can remove the `return`
+<input_path>:75:26 Error: unneeded return statement. You can remove the `return`
 Found in:
-86       case 2 { return 40; };
+75   func unneededReturn() = return 10;
 
-<input_path>:90:7 Error: Types should be capitalized and use CamelCase.
+<input_path>:79:6 Error: unneeded return statement. You can remove the `return`
 Found in:
-90   type lowerCase = Nat;
+79       return 4;
 
-<input_path>:91:7 Error: Types should be capitalized and use CamelCase.
+<input_path>:86:14 Error: unneeded return statement. You can remove the `return`
 Found in:
-91   type Snake_case = Nat;
+86     if (true) return 4
 
-<input_path>:92:17 Error: Types should be capitalized and use CamelCase.
+<input_path>:95:13 Error: unneeded return statement. You can remove the `return`
 Found in:
-92   type CamelCase<lowerCase, Snake_case> = Nat;
+95       case 1 return 40;
 
-<input_path>:92:28 Error: Types should be capitalized and use CamelCase.
+<input_path>:96:15 Error: unneeded return statement. You can remove the `return`
 Found in:
-92   type CamelCase<lowerCase, Snake_case> = Nat;
+96       case 2 { return 40; };
 
-<input_path>:95:7 Error: Functions should start lower case and use camelCase.
+<input_path>:100:7 Error: Types should be capitalized and use CamelCase.
 Found in:
-95   func UpperCase() {};
+100   type lowerCase = Nat;
 
-<input_path>:96:7 Error: Functions should start lower case and use camelCase.
+<input_path>:101:7 Error: Types should be capitalized and use CamelCase.
 Found in:
-96   func snake_case() {};
+101   type Snake_case = Nat;
 
-<input_path>:98:8 Error: Types should be capitalized and use CamelCase.
+<input_path>:102:17 Error: Types should be capitalized and use CamelCase.
 Found in:
-98   class lowerCase() {};
+102   type CamelCase<lowerCase, Snake_case> = Nat;
 
-<input_path>:99:8 Error: Types should be capitalized and use CamelCase.
+<input_path>:102:28 Error: Types should be capitalized and use CamelCase.
 Found in:
-99   class Snake_Cased_ish() {};
+102   type CamelCase<lowerCase, Snake_case> = Nat;
 
-<input_path>:100:18 Error: Types should be capitalized and use CamelCase.
+<input_path>:105:7 Error: Functions should start lower case and use camelCase.
 Found in:
-100   class CamelCase<lowerCase, Snake_case>() {};
+105   func UpperCase() {};
 
-<input_path>:100:29 Error: Types should be capitalized and use CamelCase.
+<input_path>:106:7 Error: Functions should start lower case and use camelCase.
 Found in:
-100   class CamelCase<lowerCase, Snake_case>() {};
+106   func snake_case() {};
+
+<input_path>:108:8 Error: Types should be capitalized and use CamelCase.
+Found in:
+108   class lowerCase() {};
+
+<input_path>:109:8 Error: Types should be capitalized and use CamelCase.
+Found in:
+109   class Snake_Cased_ish() {};
+
+<input_path>:110:18 Error: Types should be capitalized and use CamelCase.
+Found in:
+110   class CamelCase<lowerCase, Snake_case>() {};
+
+<input_path>:110:29 Error: Types should be capitalized and use CamelCase.
+Found in:
+110   class CamelCase<lowerCase, Snake_case>() {};

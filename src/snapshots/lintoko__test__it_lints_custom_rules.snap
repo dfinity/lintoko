@@ -97,216 +97,252 @@ expression: lint_output
  24 │   x := x + 2;
     ·   ─────┬────
     ·        ╰── Use `x += 2` instead of reassigning the variable.
- 25 │   x := x - 1;
+ 25 │ 
     ╰────
 
   × [ERROR]: assign-minus
-    ╭─[<input_path>:25:3]
- 24 │   x := x + 2;
- 25 │   x := x - 1;
+    ╭─[<input_path>:26:3]
+ 25 │ 
+ 26 │   x := x - 1;
     ·   ─────┬────
     ·        ╰── Use `x -= 1` instead of reassigning the variable
- 26 │   x := 1 - x;
+ 27 │   x := 1 - x;
+    ╰────
+
+  × [ERROR]: assign-multiply
+    ╭─[<input_path>:29:3]
+ 28 │ 
+ 29 │   x := x * 1;
+    ·   ─────┬────
+    ·        ╰── Use `x *= 1` instead of reassigning the variable.
+ 30 │   x := 1 * x;
+    ╰────
+
+  × [ERROR]: assign-multiply
+    ╭─[<input_path>:30:3]
+ 29 │   x := x * 1;
+ 30 │   x := 1 * x;
+    ·   ─────┬────
+    ·        ╰── Use `x *= 1` instead of reassigning the variable.
+ 31 │ 
+    ╰────
+
+  × [ERROR]: assign-divide
+    ╭─[<input_path>:32:3]
+ 31 │ 
+ 32 │   x := x / 1;
+    ·   ─────┬────
+    ·        ╰── Use `x /= 1` instead of reassigning the variable
+ 33 │   x := 1 / x;
+    ╰────
+
+  × [ERROR]: assign-concat
+    ╭─[<input_path>:35:3]
+ 34 │ 
+ 35 │   x := x # "1";
+    ·   ──────┬─────
+    ·         ╰── Use `x #= "1"` instead of reassigning the variable
+ 36 │   x := "1" # x;
     ╰────
 
   × [ERROR]: pun-fields
-    ╭─[<input_path>:28:13]
- 27 │ 
- 28 │   let _ = { field = field };
+    ╭─[<input_path>:38:13]
+ 37 │ 
+ 38 │   let _ = { field = field };
     ·             ──────┬──────
     ·                   ╰── Use field punning to to avoid repetition: Replace `{ field = field }` with `{ field }`
- 29 │   let _ = { var dontPun = dontPun };
+ 39 │   let _ = { var dontPun = dontPun };
     ╰────
 
   × [ERROR]: no-bool-switch
-    ╭─[<input_path>:30:11]
- 29 │       let _ = { var dontPun = dontPun };
- 30 │ ╭─▶   let _ = switch _ {
- 31 │ │       case (false) {};
- 32 │ │       case (true) {};
- 33 │ ├─▶   };
+    ╭─[<input_path>:40:11]
+ 39 │       let _ = { var dontPun = dontPun };
+ 40 │ ╭─▶   let _ = switch _ {
+ 41 │ │       case (false) {};
+ 42 │ │       case (true) {};
+ 43 │ ├─▶   };
     · ╰──── Don't switch on boolean values, use if instead
- 34 │       let _ = switch _ {
+ 44 │       let _ = switch _ {
     ╰────
 
   × [ERROR]: no-bool-switch
-    ╭─[<input_path>:34:11]
- 33 │       };
- 34 │ ╭─▶   let _ = switch _ {
- 35 │ │       case true {};
- 36 │ │       case false {};
- 37 │ ├─▶   };
+    ╭─[<input_path>:44:11]
+ 43 │       };
+ 44 │ ╭─▶   let _ = switch _ {
+ 45 │ │       case true {};
+ 46 │ │       case false {};
+ 47 │ ├─▶   };
     · ╰──── Don't switch on boolean values, use if instead
- 38 │     
+ 48 │     
     ╰────
 
   × [ERROR]: only-return-primitives
-    ╭─[<input_path>:44:47]
- 43 │ 
- 44 │   public func listReturningFunction() : async List<Text> {
+    ╭─[<input_path>:54:47]
+ 53 │ 
+ 54 │   public func listReturningFunction() : async List<Text> {
     ·                                               ─────┬────
     ·                                                    ╰── Only return primitive types from publicly exposed endpoints
- 45 │     null
+ 55 │     null
     ╰────
 
   × [ERROR]: only-return-primitives
-    ╭─[<input_path>:47:46]
- 46 │   };
- 47 │   public func setReturningFunction() : async Set.Set<Text> {
+    ╭─[<input_path>:57:46]
+ 56 │   };
+ 57 │   public func setReturningFunction() : async Set.Set<Text> {
     ·                                              ──────┬──────
     ·                                                    ╰── Only return primitive types from publicly exposed endpoints
- 48 │     null
+ 58 │     null
     ╰────
 
   × [ERROR]: only-return-primitives
-    ╭─[<input_path>:50:46]
- 49 │   };
- 50 │   public func mapReturningFunction() : async Map.Map<Text, Nat> {
+    ╭─[<input_path>:60:46]
+ 59 │   };
+ 60 │   public func mapReturningFunction() : async Map.Map<Text, Nat> {
     ·                                              ─────────┬────────
     ·                                                       ╰── Only return primitive types from publicly exposed endpoints
- 51 │     null
+ 61 │     null
     ╰────
 
   × [ERROR]: unneeded-return
-    ╭─[<input_path>:63:5]
- 62 │   func unneededReturn() {
- 63 │     return 10
+    ╭─[<input_path>:73:5]
+ 72 │   func unneededReturn() {
+ 73 │     return 10
     ·     ────┬────
     ·         ╰── unneeded return statement. You can remove the `return`
- 64 │   };
+ 74 │   };
     ╰────
 
   × [ERROR]: unneeded-return
-    ╭─[<input_path>:65:27]
- 64 │   };
- 65 │   func unneededReturn() = return 10;
+    ╭─[<input_path>:75:27]
+ 74 │   };
+ 75 │   func unneededReturn() = return 10;
     ·                           ────┬────
     ·                               ╰── unneeded return statement. You can remove the `return`
- 66 │ 
+ 76 │ 
     ╰────
 
   × [ERROR]: unneeded-return
-    ╭─[<input_path>:69:7]
- 68 │     if (true) {
- 69 │       return 4;
+    ╭─[<input_path>:79:7]
+ 78 │     if (true) {
+ 79 │       return 4;
     ·       ────┬───
     ·           ╰── unneeded return statement. You can remove the `return`
- 70 │     } else {
+ 80 │     } else {
     ╰────
 
   × [ERROR]: unneeded-return
-    ╭─[<input_path>:76:15]
- 75 │   func unneededReturn() {
- 76 │     if (true) return 4
+    ╭─[<input_path>:86:15]
+ 85 │   func unneededReturn() {
+ 86 │     if (true) return 4
     ·               ────┬───
     ·                   ╰── unneeded return statement. You can remove the `return`
- 77 │     else {
+ 87 │     else {
     ╰────
 
   × [ERROR]: unneeded-return
-    ╭─[<input_path>:85:14]
- 84 │     switch (true) {
- 85 │       case 1 return 40;
+    ╭─[<input_path>:95:14]
+ 94 │     switch (true) {
+ 95 │       case 1 return 40;
     ·              ────┬────
     ·                  ╰── unneeded return statement. You can remove the `return`
- 86 │       case 2 { return 40; };
+ 96 │       case 2 { return 40; };
     ╰────
 
   × [ERROR]: unneeded-return
-    ╭─[<input_path>:86:16]
- 85 │       case 1 return 40;
- 86 │       case 2 { return 40; };
+    ╭─[<input_path>:96:16]
+ 95 │       case 1 return 40;
+ 96 │       case 2 { return 40; };
     ·                ────┬────
     ·                    ╰── unneeded return statement. You can remove the `return`
- 87 │     };
+ 97 │     };
     ╰────
 
   × [ERROR]: case-types
-    ╭─[<input_path>:90:8]
- 89 │ 
- 90 │   type lowerCase = Nat;
-    ·        ────┬────
-    ·            ╰── Types should be capitalized and use CamelCase.
- 91 │   type Snake_case = Nat;
-    ╰────
+     ╭─[<input_path>:100:8]
+  99 │ 
+ 100 │   type lowerCase = Nat;
+     ·        ────┬────
+     ·            ╰── Types should be capitalized and use CamelCase.
+ 101 │   type Snake_case = Nat;
+     ╰────
 
   × [ERROR]: case-types
-    ╭─[<input_path>:91:8]
- 90 │   type lowerCase = Nat;
- 91 │   type Snake_case = Nat;
-    ·        ─────┬────
-    ·             ╰── Types should be capitalized and use CamelCase.
- 92 │   type CamelCase<lowerCase, Snake_case> = Nat;
-    ╰────
+     ╭─[<input_path>:101:8]
+ 100 │   type lowerCase = Nat;
+ 101 │   type Snake_case = Nat;
+     ·        ─────┬────
+     ·             ╰── Types should be capitalized and use CamelCase.
+ 102 │   type CamelCase<lowerCase, Snake_case> = Nat;
+     ╰────
 
   × [ERROR]: case-types
-    ╭─[<input_path>:92:18]
- 91 │   type Snake_case = Nat;
- 92 │   type CamelCase<lowerCase, Snake_case> = Nat;
-    ·                  ────┬────
-    ·                      ╰── Types should be capitalized and use CamelCase.
- 93 │   type CamelCase = Nat;
-    ╰────
+     ╭─[<input_path>:102:18]
+ 101 │   type Snake_case = Nat;
+ 102 │   type CamelCase<lowerCase, Snake_case> = Nat;
+     ·                  ────┬────
+     ·                      ╰── Types should be capitalized and use CamelCase.
+ 103 │   type CamelCase = Nat;
+     ╰────
 
   × [ERROR]: case-types
-    ╭─[<input_path>:92:29]
- 91 │   type Snake_case = Nat;
- 92 │   type CamelCase<lowerCase, Snake_case> = Nat;
-    ·                             ─────┬────
-    ·                                  ╰── Types should be capitalized and use CamelCase.
- 93 │   type CamelCase = Nat;
-    ╰────
+     ╭─[<input_path>:102:29]
+ 101 │   type Snake_case = Nat;
+ 102 │   type CamelCase<lowerCase, Snake_case> = Nat;
+     ·                             ─────┬────
+     ·                                  ╰── Types should be capitalized and use CamelCase.
+ 103 │   type CamelCase = Nat;
+     ╰────
 
   × [ERROR]: case-functions
-    ╭─[<input_path>:95:8]
- 94 │ 
- 95 │   func UpperCase() {};
-    ·        ────┬────
-    ·            ╰── Functions should start lower case and use camelCase.
- 96 │   func snake_case() {};
-    ╰────
+     ╭─[<input_path>:105:8]
+ 104 │ 
+ 105 │   func UpperCase() {};
+     ·        ────┬────
+     ·            ╰── Functions should start lower case and use camelCase.
+ 106 │   func snake_case() {};
+     ╰────
 
   × [ERROR]: case-functions
-    ╭─[<input_path>:96:8]
- 95 │   func UpperCase() {};
- 96 │   func snake_case() {};
-    ·        ─────┬────
-    ·             ╰── Functions should start lower case and use camelCase.
- 97 │   func _hiddenIsFine() {};
-    ╰────
+     ╭─[<input_path>:106:8]
+ 105 │   func UpperCase() {};
+ 106 │   func snake_case() {};
+     ·        ─────┬────
+     ·             ╰── Functions should start lower case and use camelCase.
+ 107 │   func _hiddenIsFine() {};
+     ╰────
 
   × [ERROR]: case-types
-    ╭─[<input_path>:98:9]
- 97 │   func _hiddenIsFine() {};
- 98 │   class lowerCase() {};
-    ·         ────┬────
-    ·             ╰── Types should be capitalized and use CamelCase.
- 99 │   class Snake_Cased_ish() {};
-    ╰────
+     ╭─[<input_path>:108:9]
+ 107 │   func _hiddenIsFine() {};
+ 108 │   class lowerCase() {};
+     ·         ────┬────
+     ·             ╰── Types should be capitalized and use CamelCase.
+ 109 │   class Snake_Cased_ish() {};
+     ╰────
 
   × [ERROR]: case-types
-     ╭─[<input_path>:99:9]
-  98 │   class lowerCase() {};
-  99 │   class Snake_Cased_ish() {};
+     ╭─[<input_path>:109:9]
+ 108 │   class lowerCase() {};
+ 109 │   class Snake_Cased_ish() {};
      ·         ───────┬───────
      ·                ╰── Types should be capitalized and use CamelCase.
- 100 │   class CamelCase<lowerCase, Snake_case>() {};
+ 110 │   class CamelCase<lowerCase, Snake_case>() {};
      ╰────
 
   × [ERROR]: case-types
-     ╭─[<input_path>:100:19]
-  99 │   class Snake_Cased_ish() {};
- 100 │   class CamelCase<lowerCase, Snake_case>() {};
+     ╭─[<input_path>:110:19]
+ 109 │   class Snake_Cased_ish() {};
+ 110 │   class CamelCase<lowerCase, Snake_case>() {};
      ·                   ────┬────
      ·                       ╰── Types should be capitalized and use CamelCase.
- 101 │   class CamelCase<Camel, Case>() {};
+ 111 │   class CamelCase<Camel, Case>() {};
      ╰────
 
   × [ERROR]: case-types
-     ╭─[<input_path>:100:30]
-  99 │   class Snake_Cased_ish() {};
- 100 │   class CamelCase<lowerCase, Snake_case>() {};
+     ╭─[<input_path>:110:30]
+ 109 │   class Snake_Cased_ish() {};
+ 110 │   class CamelCase<lowerCase, Snake_case>() {};
      ·                              ─────┬────
      ·                                   ╰── Types should be capitalized and use CamelCase.
- 101 │   class CamelCase<Camel, Case>() {};
+ 111 │   class CamelCase<Camel, Case>() {};
      ╰────
