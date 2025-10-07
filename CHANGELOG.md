@@ -1,5 +1,10 @@
 # Unreleased
 
+# 0.5.0
+- feat: allow passing a single rule to iterate on
+- feat: adds rules for binary assignment operators *, /, and #
+- chore: updates grammar version
+
 # 0.4.3
 - chore: updates tree-sitter version to support mixins and weak references
 
