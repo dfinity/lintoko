@@ -13,7 +13,7 @@ name = "lintoko"
 
 [dependencies]
 tree-sitter = "0.25.9"
-tree-sitter-motoko = { git = "https://github.com/christoph-dfinity/tree-sitter-motoko", rev = "616001555aebe8d8f208185d59fb43c641b16c43" }
+tree-sitter-motoko = { git = "https://github.com/christoph-dfinity/tree-sitter-motoko", rev = "c8b5b31d15176eaeafb6e1762ee46fb740bfca7e" }
 clap = { version = "4.5", features = ["derive"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
