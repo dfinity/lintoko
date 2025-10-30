@@ -32,35 +32,6 @@ struct RawDiagnostic {
     range: Range,
 }
 
-pub fn default_rules() -> Vec<Rule> {
-    vec![
-        toml::from_str(include_str!("../default-rules/no-flexible.toml"))
-            .expect("Failed to parse no-flexible rule"),
-        toml::from_str(include_str!("../default-rules/no-stable.toml"))
-            .expect("Failed to parse no-stable rule"),
-        toml::from_str(include_str!("../default-rules/pun-fields.toml"))
-            .expect("Failed to parse pun-fields rule"),
-        toml::from_str(include_str!("../default-rules/no-bool-switch.toml"))
-            .expect("Failed to parse no-bool-switch rule"),
-        toml::from_str(include_str!("../default-rules/assign-plus.toml"))
-            .expect("Failed to parse assign-plus rule"),
-        toml::from_str(include_str!("../default-rules/assign-minus.toml"))
-            .expect("Failed to parse assign-minus rule"),
-        toml::from_str(include_str!("../default-rules/assign-multiply.toml"))
-            .expect("Failed to parse assign-multiply rule"),
-        toml::from_str(include_str!("../default-rules/assign-divide.toml"))
-            .expect("Failed to parse assign-divide rule"),
-        toml::from_str(include_str!("../default-rules/assign-concat.toml"))
-            .expect("Failed to parse assign-concat rule"),
-        toml::from_str(include_str!("../default-rules/unneeded-return.toml"))
-            .expect("Failed to parse unneeded-return rule"),
-        toml::from_str(include_str!("../default-rules/case-types.toml"))
-            .expect("Failed to parse case-types rule"),
-        toml::from_str(include_str!("../default-rules/case-functions.toml"))
-            .expect("Failed to parse case-functions rule"),
-    ]
-}
-
 pub fn load_rule_from_file(path: &Path) -> Result<Rule> {
     let content = std::fs::read_to_string(path)?;
     let rule = toml::from_str(&content)?;
@@ -258,32 +229,12 @@ mod test {
     }
 
     #[test]
-    fn it_lints_default_rules() {
+    fn it_lints_example_rules() {
         let mut out: Vec<u8> = vec![];
         unsafe {
             std::env::set_var("NO_COLOR", "1");
         }
-        let rules = default_rules();
-        let _err_count = lint_file(
-            &Config::default(),
-            "<input_path>",
-            include_str!("../test-data.mo"),
-            &rules,
-            &mut out,
-        )
-        .unwrap();
-        let lint_output = str::from_utf8(&out).unwrap();
-        insta::assert_snapshot!(lint_output);
-    }
-
-    #[test]
-    fn it_lints_custom_rules() {
-        let mut out: Vec<u8> = vec![];
-        unsafe {
-            std::env::set_var("NO_COLOR", "1");
-        }
-        let mut rules = default_rules();
-        rules.extend(load_rules_from_directory(Path::new("custom-rules")).unwrap());
+        let rules = load_rules_from_directory(Path::new("example-rules")).unwrap();
         let _err_count = lint_file(
             &Config::default(),
             "<input_path>",
@@ -302,8 +253,7 @@ mod test {
         unsafe {
             std::env::set_var("NO_COLOR", "1");
         }
-        let mut rules = default_rules();
-        rules.extend(load_rules_from_directory(Path::new("custom-rules")).unwrap());
+        let rules = load_rules_from_directory(Path::new("example-rules")).unwrap();
         let _err_count = lint_file(
             &Config {
                 format: OutputFormat::Text,

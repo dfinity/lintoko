@@ -21,7 +21,7 @@ struct Args {
     #[arg(short, long, value_enum, default_value_t=OutputFormat::Pretty)]
     format: OutputFormat,
 
-    /// Directories containing extra rules.
+    /// Directories containing rules. Can be passed multiple times
     ///
     /// When passing a file path, will _only_ use the rule in that file
     #[arg(short, long, value_name = "DIRECTORY")]
@@ -96,7 +96,7 @@ fn main() -> Result<()> {
         bail!("Input patterns did not match any files")
     }
 
-    let mut rules = lintoko::default_rules();
+    let mut rules = vec![];
     for dir in &args.rules {
         if dir.is_file() {
             debug!("Loading single rule from: {}", dir.display());
