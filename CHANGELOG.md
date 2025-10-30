@@ -1,5 +1,8 @@
 # Unreleased
 
+# 0.6.0
+- breaking: default rules are no longer a thing. All rules need to be passed via command line flags
+
 # 0.5.1
 - chore: updates grammar version
 
