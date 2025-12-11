@@ -2,7 +2,7 @@
 name = "lintoko"
 version = "0.6.0"
 edition = "2024"
-repository = "https://github.com/dfinity/lintoko"
+repository = "https://github.com/caffeinelabs/lintoko"
 license = "Apache-2.0"
 authors = ["DFINITY Stiftung"]
 
