@@ -4,7 +4,7 @@ An extensible linting tool for Motoko
 
 ## Installation
 
-Download the latest release from [GitHub](https://github.com/dfinity/lintoko/releases)
+Download the latest release from [GitHub](https://github.com/caffeinelabs/lintoko/releases)
 
 ## Running
 
