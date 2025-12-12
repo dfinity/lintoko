@@ -10,3 +10,4 @@ query = """
   (identifier) @field
   (var_exp (identifier) @value)) @filter
 """
+fix = "@field"

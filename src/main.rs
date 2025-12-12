@@ -1,6 +1,7 @@
 use anyhow::{Context, Result, anyhow, bail};
 use clap::{Parser, ValueEnum};
 use glob::glob_with;
+use std::fs;
 use std::path::PathBuf;
 use std::{collections::BTreeSet, path::Path};
 use tracing::{debug, level_filters::LevelFilter};
@@ -16,6 +17,10 @@ struct Args {
     /// Verbose output
     #[arg(short, long)]
     verbose: bool,
+
+    /// Apply fixes
+    #[arg(long)]
+    fix: bool,
 
     /// Output format
     #[arg(short, long, value_enum, default_value_t=OutputFormat::Pretty)]
@@ -79,6 +84,7 @@ fn main() -> Result<()> {
         .init();
 
     let config = lintoko::Config {
+        fix: args.fix,
         format: match args.format {
             OutputFormat::Pretty => lintoko::OutputFormat::Pretty,
             OutputFormat::Text => lintoko::OutputFormat::Text,
@@ -114,13 +120,18 @@ fn main() -> Result<()> {
         let file_content = std::fs::read_to_string(&input)
             .with_context(|| anyhow!("Failed to read file at '{}'", input.display()))?;
 
-        error_count += lintoko::lint_file(
+        let res = lintoko::lint_file(
             &config,
             input.to_string_lossy().as_ref(),
             &file_content,
             &rules,
             std::io::stderr(),
         )?;
+        error_count += res.error_count;
+        if let Some(fixed_file) = res.fixed_file {
+            debug!("Writing fixed file: {}", input.display());
+            fs::write(&input, fixed_file)?
+        }
     }
 
     if error_count > 0 {
