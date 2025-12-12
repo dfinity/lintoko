@@ -16,6 +16,7 @@ pub enum OutputFormat {
 #[derive(Debug, Clone, Default)]
 pub struct Config {
     pub format: OutputFormat,
+    pub fix: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -23,6 +24,7 @@ pub struct Rule {
     name: String,
     description: String,
     query: String,
+    fix: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -30,6 +32,7 @@ struct RawDiagnostic {
     rule: String,
     description: String,
     range: Range,
+    fix: Option<String>,
 }
 
 pub fn load_rule_from_file(path: &Path) -> Result<Rule> {
@@ -56,7 +59,7 @@ pub fn load_rules_from_directory(dir: &Path) -> Result<Vec<Rule>> {
 }
 
 /// Allows mentioning captures in rule descriptions, and templates them with the actual captures when reporting errors.
-fn template_description(
+fn template(
     template: &str,
     query: &Query,
     captures: &[QueryCapture<'_>],
@@ -129,23 +132,30 @@ fn apply_rule(rule: &Rule, tree: Node, input: &str) -> Result<Vec<RawDiagnostic>
         if !seen.insert(range) {
             continue;
         }
-        let description = template_description(&rule.description, &query, &captures, input)?;
+        let description = template(&rule.description, &query, &captures, input)?;
+        let fix = if let Some(ref fix_template) = rule.fix {
+            Some(template(fix_template, &query, &captures, input)?)
+        } else {
+            None
+        };
+
         let diagnostic = RawDiagnostic {
             rule: rule.name.to_string(),
             description,
             range,
+            fix,
         };
         diagnostics.push(diagnostic);
     }
     Ok(diagnostics)
 }
 
-fn print_pretty_diagnostic(path: &str, source_code: &str, diagnostic: RawDiagnostic) -> String {
+fn print_pretty_diagnostic(path: &str, source_code: &str, diagnostic: &RawDiagnostic) -> String {
     let source_code = NamedSource::new(path, source_code.to_string());
     let report = miette!(
         severity = Severity::Error,
         labels = vec![LabeledSpan::new_primary_with_span(
-            Some(diagnostic.description),
+            Some(diagnostic.description.clone()),
             (
                 diagnostic.range.start_byte,
                 diagnostic.range.end_byte - diagnostic.range.start_byte
@@ -158,7 +168,7 @@ fn print_pretty_diagnostic(path: &str, source_code: &str, diagnostic: RawDiagnos
     format!("{report:?}")
 }
 
-fn print_text_diagnostic(path: &str, source_code: &str, diagnostic: RawDiagnostic) -> String {
+fn print_text_diagnostic(path: &str, source_code: &str, diagnostic: &RawDiagnostic) -> String {
     let mut snippet = String::new();
     let start_line = diagnostic.range.start_point.row + 1;
     let end_line = diagnostic.range.end_point.row + 1;
@@ -181,13 +191,18 @@ fn print_text_diagnostic(path: &str, source_code: &str, diagnostic: RawDiagnosti
     )
 }
 
+pub struct LintResult {
+    pub error_count: usize,
+    pub fixed_file: Option<String>,
+}
+
 pub fn lint_file(
     config: &Config,
     path: &str,
     input: &str,
     rules: &[Rule],
     mut out: impl Write,
-) -> Result<usize> {
+) -> Result<LintResult> {
     let mut parser = Parser::new();
     parser
         .set_language(&tree_sitter_motoko::LANGUAGE.into())
@@ -197,16 +212,52 @@ pub fn lint_file(
     for rule in rules {
         diagnostics.extend(apply_rule(rule, tree.root_node(), input)?);
     }
-    let count = diagnostics.len();
     diagnostics.sort_by_key(|d| d.range.start_byte);
-    for diagnostic in diagnostics {
+    for diagnostic in &diagnostics {
         let output = match config.format {
             OutputFormat::Pretty => print_pretty_diagnostic(path, input, diagnostic),
             OutputFormat::Text => print_text_diagnostic(path, input, diagnostic),
         };
         writeln!(&mut out, "{output}")?
     }
-    Ok(count)
+    let mut fixed_file = None;
+    let mut overlaps = false;
+    if config.fix {
+        diagnostics.reverse();
+        let mut output = input.to_string();
+        let mut last_range: Option<Range> = None;
+        for diagnostic in &diagnostics {
+            if let Some(fixed) = &diagnostic.fix {
+                // NOTE: Don't try to fix overlapping ranges. Instead requires running the tool to a fixpoint
+                // Would be nice to automate in the future
+                if let Some(last_range) = last_range
+                    && diagnostic.range.end_byte >= last_range.start_byte
+                {
+                    overlaps = true;
+                    continue;
+                }
+                output.replace_range(
+                    diagnostic.range.start_byte..diagnostic.range.end_byte,
+                    fixed,
+                );
+                last_range = Some(diagnostic.range)
+            }
+        }
+        if output != input {
+            fixed_file = Some(output)
+        }
+    }
+    if overlaps {
+        writeln!(
+            &mut out,
+            "Spotted overlaps when applying fixes. Re-run the command to make progress"
+        )?
+    }
+
+    Ok(LintResult {
+        error_count: diagnostics.len(),
+        fixed_file,
+    })
 }
 
 #[cfg(test)]
@@ -216,7 +267,7 @@ mod test {
     #[test]
     fn no_rules() {
         let mut out: Vec<u8> = vec![];
-        let err_count = lint_file(
+        let res = lint_file(
             &Config::default(),
             "<input_path>",
             include_str!("../test-data.mo"),
@@ -224,7 +275,7 @@ mod test {
             &mut out,
         )
         .unwrap();
-        assert_eq!(err_count, 0);
+        assert_eq!(res.error_count, 0);
         assert_eq!(str::from_utf8(&out).unwrap(), "");
     }
 
@@ -235,7 +286,7 @@ mod test {
             std::env::set_var("NO_COLOR", "1");
         }
         let rules = load_rules_from_directory(Path::new("example-rules")).unwrap();
-        let _err_count = lint_file(
+        let _ = lint_file(
             &Config::default(),
             "<input_path>",
             include_str!("../test-data.mo"),
@@ -256,6 +307,7 @@ mod test {
         let rules = load_rules_from_directory(Path::new("example-rules")).unwrap();
         let _err_count = lint_file(
             &Config {
+                fix: false,
                 format: OutputFormat::Text,
             },
             "<input_path>",
@@ -266,5 +318,26 @@ mod test {
         .unwrap();
         let lint_output = str::from_utf8(&out).unwrap();
         insta::assert_snapshot!(lint_output);
+    }
+
+    #[test]
+    fn it_applies_fixes() {
+        let mut out: Vec<u8> = vec![];
+        unsafe {
+            std::env::set_var("NO_COLOR", "1");
+        }
+        let rule = load_rule_from_file(Path::new("example-rules/pun-fields.toml")).unwrap();
+        let res = lint_file(
+            &Config {
+                fix: true,
+                format: OutputFormat::Text,
+            },
+            "<input_path>",
+            "{ x = x }",
+            &[rule],
+            &mut out,
+        )
+        .unwrap();
+        assert_eq!(res.fixed_file.unwrap(), "{ x }".to_string())
     }
 }

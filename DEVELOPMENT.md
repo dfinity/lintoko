@@ -17,7 +17,7 @@ When updating to version vX.Y.Z
 2. Update the version in Cargo.toml + run `cargo build` to update the lockfile
 3. git commit -m "release: X.Y.Z"
 4. git push
-5. git tag v.X.Y.Z
+5. git tag vX.Y.Z
 6. git push --tags
 
 Automation will take care of creating the release and its binaries. This is using `cargo-dist` and configured in [`dist-workspace.toml`](./dist-workspace.toml)

@@ -1,4 +1,5 @@
 # Unreleased
+- feat: allows specifying fixes in rules, and automatically applies with the `--fix` flag
 
 # 0.6.0
 - breaking: default rules are no longer a thing. All rules need to be passed via command line flags

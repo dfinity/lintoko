@@ -25,6 +25,8 @@ Specify rules with the `-r` flag. The tool will look for rules in the specified 
 lintoko -r my-rules -r more-rules
 ```
 
+Some rules also specify automatic fixes. These can be applied by passing the `--fix` flag.
+
 ## Defining Rules
 
 Rules are specified as TOML files. For example this rule forbids the usage of `let-else`:
