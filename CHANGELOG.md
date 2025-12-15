@@ -1,4 +1,6 @@
 # Unreleased
+
+# 0.7.0
 - feat: allows specifying fixes in rules, and automatically applies with the `--fix` flag
 
 # 0.6.0
