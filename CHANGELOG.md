@@ -1,5 +1,9 @@
 # Unreleased
 
+# 0.8.0
+- chore: updates grammar version
+- chore: produces linux-arm64 binaries on release
+
 # 0.7.0
 - feat: allows specifying fixes in rules, and automatically applies with the `--fix` flag
 
