@@ -46,7 +46,6 @@ These capture names have special meaning in lintoko (from `lib.rs`):
 | `@error` | yes | Marks violation nodes. Determines diagnostic range and what `fix` replaces |
 | `@trailing` | no | If the captured node has a `next_named_sibling`, the match is **skipped**. Use to enforce last-child position ([tree-sitter bug workaround](https://github.com/tree-sitter/tree-sitter/issues/4558)) |
 | `@filter` | no | Suppresses `@error` matches at the same range. Use for exceptions |
-| `@anything_else` | no | For predicates (`#eq?`, `#match?`, etc.) and templating in `description`/`fix` |
 
 ## Query Pattern Reference
 
@@ -153,6 +152,10 @@ A separate pattern in the same query that **suppresses** `@error` matches at the
 (let_dec (func_exp params: (_ (_ (typ_annot) @filter))))
 ```
 
+**Allow-list via `@filter`** — To flag “anything except these shapes,” you often pair `(parent (_) @error)` with one or more `(parent (allowed_child)) @filter` patterns. **`@error` and each `@filter` must resolve to the same byte range** (see Common Pitfalls): typically both captures refer to **the same child node** (the `_` / `allowed_child` instance), not `@error` on `parent` and `@filter` only on a nested descendant (or the reverse).
+
+**Catch-all `(_)` under a wide parent** — `(root (_) @error)` matches **every named child** of `root`. Depending on the grammar, that can include **comments**, **whitespace-related nodes**, or other **extras** as named siblings. You may need extra `@filter` patterns or a **narrower parent / explicit violation patterns** instead of a single wildcard high in the tree.
+
 ### `@trailing` for last-child
 
 Ensures a node is the last named sibling in its parent. Stack `@trailing` at multiple nesting levels for tail-position checks:
@@ -196,7 +199,7 @@ The `fix` field is a string template. `@capture` references are replaced with ma
 
 - **No recursive queries** — tree-sitter can't match "at any depth"; repeat patterns at increasing nesting: `(_ (_ (target) @error))`, `(_ (_ (_ (target) @error)))`, etc.
 - **`@trailing` is global** — ANY `@trailing` capture with a `next_named_sibling` skips the ENTIRE match, not just that sub-pattern
-- **`@filter` matches by byte range** — `@filter` and `@error` must produce identical byte ranges to suppress; different ranges won't cancel
+- **`@filter` matches by byte range** — `@filter` and `@error` must produce identical byte ranges to suppress; different ranges won't cancel. For allow-lists, ensure both captures target the **same node** (same pattern depth), as in the `if_exp then:` example: `(_) @error` and `(block_exp) @filter` both refer to the **then** child, not the outer `if_exp`
 - **Deduplication** — the engine deduplicates by byte range per rule, so overlapping patterns are safe
 
 ## Writing Rules — Process
@@ -207,7 +210,7 @@ The `fix` field is a string template. `@capture` references are replaced with ma
 4. **Add predicates** to narrow matches (equality, regex, etc.)
 5. **Handle exceptions** with `@filter` if needed
 6. **Add `fix`** if the correction can be expressed as a template
-7. **Test** with `lintoko -r . sample.mo`
+7. **Test** with `lintoko -r single-rule.toml sample.mo` (runs one rule on one file)
 
 ## Running Lintoko
 

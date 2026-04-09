@@ -43,18 +43,6 @@ The "query" field contains a [Tree-sitter query](https://tree-sitter.github.io/t
 Look at the rules in [`example-rules`](./example-rules) for more complex examples.
 
 
-## AI Skill
-
-This repo includes an [AI skill](.claude/skills/lintoko/SKILL.md) that teaches AI agents how to write lintoko rules. To make it available in your own projects, clone/fork this repo and symlink the skill into your local config:
-
-```bash
-# For Cursor
-ln -s /path/to/lintoko/.claude/skills/lintoko ~/.cursor/skills/lintoko
-
-# For Claude Code
-ln -s /path/to/lintoko/.claude/skills/lintoko ~/.claude/skills/lintoko
-```
-
 ## LICENSE
 
 Copyright 2025 DFINITY Stiftung
