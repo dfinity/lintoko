@@ -217,7 +217,8 @@ The `fix` field is a string template. `@capture` references are replaced with ma
 ### CLI
 
 ```bash
-lintoko -r <rules-dir> [files/dirs/globs]  # lint files
+lintoko -r single-rule.toml file.mo         # iterate on one rule + one file
+lintoko -r <rules-dir> [files/dirs/globs]   # lint files with a rule directory
 lintoko -r rules --fix                      # apply auto-fixes
 lintoko -r rules -f text                    # text output (vs pretty)
 lintoko -r my-rules -r more-rules src/      # multiple rule dirs
