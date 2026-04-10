@@ -120,42 +120,48 @@ Found in:
 Found in:
 96       case 2 { return 40; };
 
-<input_path>:100:7 Error: Types should be capitalized and use CamelCase.
+<input_path>:109:28 Error: Nesting depth exceeded maximum allowed depth of 8
 Found in:
-100   type lowerCase = Nat;
+109                   if (true) {
+110                     0
+111                   };
 
-<input_path>:101:7 Error: Types should be capitalized and use CamelCase.
+<input_path>:121:7 Error: Types should be capitalized and use CamelCase.
 Found in:
-101   type Snake_case = Nat;
+121   type lowerCase = Nat;
 
-<input_path>:102:17 Error: Types should be capitalized and use CamelCase.
+<input_path>:122:7 Error: Types should be capitalized and use CamelCase.
 Found in:
-102   type CamelCase<lowerCase, Snake_case> = Nat;
+122   type Snake_case = Nat;
 
-<input_path>:102:28 Error: Types should be capitalized and use CamelCase.
+<input_path>:123:17 Error: Types should be capitalized and use CamelCase.
 Found in:
-102   type CamelCase<lowerCase, Snake_case> = Nat;
+123   type CamelCase<lowerCase, Snake_case> = Nat;
 
-<input_path>:105:7 Error: Functions should start lower case and use camelCase.
+<input_path>:123:28 Error: Types should be capitalized and use CamelCase.
 Found in:
-105   func UpperCase() {};
+123   type CamelCase<lowerCase, Snake_case> = Nat;
 
-<input_path>:106:7 Error: Functions should start lower case and use camelCase.
+<input_path>:126:7 Error: Functions should start lower case and use camelCase.
 Found in:
-106   func snake_case() {};
+126   func UpperCase() {};
 
-<input_path>:108:8 Error: Types should be capitalized and use CamelCase.
+<input_path>:127:7 Error: Functions should start lower case and use camelCase.
 Found in:
-108   class lowerCase() {};
+127   func snake_case() {};
 
-<input_path>:109:8 Error: Types should be capitalized and use CamelCase.
+<input_path>:129:8 Error: Types should be capitalized and use CamelCase.
 Found in:
-109   class Snake_Cased_ish() {};
+129   class lowerCase() {};
 
-<input_path>:110:18 Error: Types should be capitalized and use CamelCase.
+<input_path>:130:8 Error: Types should be capitalized and use CamelCase.
 Found in:
-110   class CamelCase<lowerCase, Snake_case>() {};
+130   class Snake_Cased_ish() {};
 
-<input_path>:110:29 Error: Types should be capitalized and use CamelCase.
+<input_path>:131:18 Error: Types should be capitalized and use CamelCase.
 Found in:
-110   class CamelCase<lowerCase, Snake_case>() {};
+131   class CamelCase<lowerCase, Snake_case>() {};
+
+<input_path>:131:29 Error: Types should be capitalized and use CamelCase.
+Found in:
+131   class CamelCase<lowerCase, Snake_case>() {};

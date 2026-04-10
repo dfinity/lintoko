@@ -1,0 +1,5 @@
+name = "max-nestedness"
+description = "Nesting depth exceeded maximum allowed depth of 8"
+query = """
+((block_exp) @error (#nesting-depth? @error "obj_body,block_exp,object_exp" "8"))
+"""

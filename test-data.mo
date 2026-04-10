@@ -97,6 +97,27 @@ shared (msg) actor class() {
     };
   };
 
+  // Deeply nested block (depth 9 — exceeds limit of 8)
+  func deeplyNested() {
+    if (true) {
+      if (true) {
+        if (true) {
+          if (true) {
+            if (true) {
+              if (true) {
+                if (true) {
+                  if (true) {
+                    0
+                  };
+                };
+              };
+            };
+          };
+        };
+      };
+    };
+  };
+
   type lowerCase = Nat;
   type Snake_case = Nat;
   type CamelCase<lowerCase, Snake_case> = Nat;
