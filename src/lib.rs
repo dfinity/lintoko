@@ -4,7 +4,8 @@ use anyhow::{Context, Result, anyhow};
 use miette::{LabeledSpan, NamedSource, Severity, miette};
 use regex::Regex;
 use serde::Deserialize;
-use std::{collections::HashSet, fs, io::Write, path::Path};
+use std::collections::{HashMap, HashSet};
+use std::{fs, io::Write, path::Path};
 use tracing::debug;
 use tree_sitter::{
     Node, Parser, Query, QueryCapture, QueryCursor, Range, StreamingIterator,
@@ -107,6 +108,7 @@ fn apply_rule(rule: &Rule, tree: Node, input: &str) -> Result<Vec<RawDiagnostic>
     let mut matches = cursor.matches(&query, tree, input.as_bytes());
     let mut filtered: HashSet<Range> = HashSet::new();
     let mut errors = Vec::new();
+    let mut types_cache = HashMap::new();
     while let Some(m) = matches.next() {
         // Works around a tree-sitter bug that doesn't let us use trailing anchors: https://github.com/tree-sitter/tree-sitter/issues/4558
         if let Some(trailing_capture_index) = trailing_capture_index
@@ -117,11 +119,10 @@ fn apply_rule(rule: &Rule, tree: Node, input: &str) -> Result<Vec<RawDiagnostic>
         };
         // Evaluate custom predicates
         let predicates = query.general_predicates(m.pattern_index);
-        if !predicates.is_empty() {
-            let captures = m.captures.to_vec();
-            if !custom_predicates::evaluate_predicates(predicates, &captures)? {
-                continue;
-            }
+        if !predicates.is_empty()
+            && !custom_predicates::evaluate_predicates(predicates, m.captures, &mut types_cache)?
+        {
+            continue;
         }
         for error_node in m.nodes_for_capture_index(error_capture_index) {
             // NOTE: We have to use `to_vec` here, or tree-sitter will silently swap the captures under our feet.
@@ -370,6 +371,26 @@ mod test {
     }
 
     #[test]
+    fn max_depth_does_not_leak_into_siblings() {
+        let mut out: Vec<u8> = vec![];
+        let rule = Rule {
+            name: "too-deep".into(),
+            description: "nesting too deep".into(),
+            // threshold 1: only flag obj_bodies with >1 level of block_exp nesting
+            query: r#"((obj_body) @error (#max-depth? @error "block_exp" "1"))"#.into(),
+            fix: None,
+        };
+        // First actor: shallow (1 block_exp). Second actor: deep (2 block_exps).
+        // The query matches each obj_body independently. The first should NOT be
+        // flagged — its max depth is 1, not > 1. Before the fix, subtree_depth
+        // would walk into the second actor's subtree via goto_next_sibling and
+        // report depth 2 for both.
+        let input = "actor { func f() { 0 } }; actor { func g() { if (true) { 0 } } };";
+        let res = lint_file(&Config::default(), "<test>", input, &[rule], &mut out).unwrap();
+        assert_eq!(res.error_count, 1); // only the second actor
+    }
+
+    #[test]
     fn max_depth_silent_at_threshold() {
         let mut out: Vec<u8> = vec![];
         let rule = Rule {
@@ -467,4 +488,5 @@ mod test {
         let res = lint_file(&Config::default(), "<test>", input, &[rule], &mut out).unwrap();
         assert_eq!(res.error_count, 1);
     }
+
 }
