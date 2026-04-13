@@ -7,9 +7,7 @@ use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::{fs, io::Write, path::Path};
 use tracing::debug;
-use tree_sitter::{
-    Node, Parser, Query, QueryCapture, QueryCursor, Range, StreamingIterator,
-};
+use tree_sitter::{Node, Parser, Query, QueryCapture, QueryCursor, Range, StreamingIterator};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum OutputFormat {

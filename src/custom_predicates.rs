@@ -82,9 +82,7 @@ fn eval_depth_predicate<'q>(
     let types_str = resolve_string_arg(&pred.args, 1)?;
     let threshold: usize = resolve_string_arg(&pred.args, 2)?
         .parse()
-        .with_context(|| {
-            format!("{} threshold must be a number", pred.operator.as_ref())
-        })?;
+        .with_context(|| format!("{} threshold must be a number", pred.operator.as_ref()))?;
     let types = match types_cache.entry(types_str) {
         Entry::Occupied(e) => e.into_mut(),
         Entry::Vacant(e) => e.insert(types_str.split(',').map(str::trim).collect()),
