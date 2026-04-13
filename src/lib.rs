@@ -108,8 +108,8 @@ fn apply_rule(rule: &Rule, tree: Node, input: &str) -> Result<Vec<RawDiagnostic>
         if evaluator.should_skip(m)? {
             continue;
         }
-        // NOTE: We have to use `to_vec` here, or tree-sitter will silently swap the captures under our feet.
         for error_node in m.nodes_for_capture_index(error_capture_index) {
+            // NOTE: We have to use `to_vec` here, or tree-sitter will silently swap the captures under our feet.
             errors.push((error_node.range(), m.captures.to_vec()));
         }
         evaluator.collect_filter_ranges(m, &mut filtered);
