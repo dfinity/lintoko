@@ -1,0 +1,5 @@
+name = "nesting-limit"
+description = "Nesting depth exceeded maximum allowed depth of 9"
+query = """
+((block_exp) @error (#ancestor-depth? @error "obj_body,block_exp,object_exp" "9"))
+"""

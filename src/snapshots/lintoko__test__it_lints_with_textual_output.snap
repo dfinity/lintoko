@@ -1,5 +1,6 @@
 ---
 source: src/lib.rs
+assertion_line: 312
 expression: lint_output
 ---
 <input_path>:1:0 Error: Do not use the Result pattern. Use Runtime.trap() instead.
@@ -159,3 +160,9 @@ Found in:
 <input_path>:110:29 Error: Types should be capitalized and use CamelCase.
 Found in:
 110   class CamelCase<lowerCase, Snake_case>() {};
+
+<input_path>:122:28 Error: Nesting depth exceeded maximum allowed depth of 9
+Found in:
+122                   if (true) {
+123                     0
+124                   };

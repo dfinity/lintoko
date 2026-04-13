@@ -1,8 +1,11 @@
+mod custom_predicates;
+
 use anyhow::{Context, Result, anyhow};
 use miette::{LabeledSpan, NamedSource, Severity, miette};
 use regex::Regex;
 use serde::Deserialize;
-use std::{collections::HashSet, fs, io::Write, path::Path};
+use std::collections::HashSet;
+use std::{fs, io::Write, path::Path};
 use tracing::debug;
 use tree_sitter::{Node, Parser, Query, QueryCapture, QueryCursor, Range, StreamingIterator};
 
@@ -96,31 +99,20 @@ fn apply_rule(rule: &Rule, tree: Node, input: &str) -> Result<Vec<RawDiagnostic>
             rule.query
         )
     })?;
-    let filter_capture_index = query.capture_index_for_name("filter");
-    let trailing_capture_index = query.capture_index_for_name("trailing");
-
+    let mut evaluator = custom_predicates::MatchEvaluator::new(&query);
     let mut cursor = QueryCursor::new();
     let mut matches = cursor.matches(&query, tree, input.as_bytes());
     let mut filtered: HashSet<Range> = HashSet::new();
     let mut errors = Vec::new();
     while let Some(m) = matches.next() {
-        // Works around a tree-sitter bug that doesn't let us use trailing anchors: https://github.com/tree-sitter/tree-sitter/issues/4558
-        if let Some(trailing_capture_index) = trailing_capture_index
-            && m.nodes_for_capture_index(trailing_capture_index)
-                .any(|n| n.next_named_sibling().is_some())
-        {
+        if evaluator.should_skip(m)? {
             continue;
-        };
+        }
         for error_node in m.nodes_for_capture_index(error_capture_index) {
             // NOTE: We have to use `to_vec` here, or tree-sitter will silently swap the captures under our feet.
             errors.push((error_node.range(), m.captures.to_vec()));
         }
-
-        if let Some(filter_capture_index) = filter_capture_index {
-            for filter_node in m.nodes_for_capture_index(filter_capture_index) {
-                filtered.insert(filter_node.range());
-            }
-        }
+        evaluator.collect_filter_ranges(m, &mut filtered);
     }
     let mut seen = HashSet::new();
     let mut diagnostics = vec![];
@@ -191,6 +183,7 @@ fn print_text_diagnostic(path: &str, source_code: &str, diagnostic: &RawDiagnost
     )
 }
 
+#[derive(Debug)]
 pub struct LintResult {
     pub error_count: usize,
     pub fixed_file: Option<String>,

@@ -110,4 +110,24 @@ shared (msg) actor class() {
   class CamelCase<lowerCase, Snake_case>() {};
   class CamelCase<Camel, Case>() {};
 
+  // Deeply nested block (depth 9 — exceeds limit of 8)
+  func deeplyNested() {
+    if (true) {
+      if (true) {
+        if (true) {
+          if (true) {
+            if (true) {
+              if (true) {
+                if (true) {
+                  if (true) {
+                    0
+                  };
+                };
+              };
+            };
+          };
+        };
+      };
+    };
+  };
 }
