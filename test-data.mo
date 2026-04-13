@@ -97,6 +97,19 @@ shared (msg) actor class() {
     };
   };
 
+  type lowerCase = Nat;
+  type Snake_case = Nat;
+  type CamelCase<lowerCase, Snake_case> = Nat;
+  type CamelCase = Nat;
+
+  func UpperCase() {};
+  func snake_case() {};
+  func _hiddenIsFine() {};
+  class lowerCase() {};
+  class Snake_Cased_ish() {};
+  class CamelCase<lowerCase, Snake_case>() {};
+  class CamelCase<Camel, Case>() {};
+
   // Deeply nested block (depth 9 — exceeds limit of 8)
   func deeplyNested() {
     if (true) {
@@ -117,18 +130,4 @@ shared (msg) actor class() {
       };
     };
   };
-
-  type lowerCase = Nat;
-  type Snake_case = Nat;
-  type CamelCase<lowerCase, Snake_case> = Nat;
-  type CamelCase = Nat;
-
-  func UpperCase() {};
-  func snake_case() {};
-  func _hiddenIsFine() {};
-  class lowerCase() {};
-  class Snake_Cased_ish() {};
-  class CamelCase<lowerCase, Snake_case>() {};
-  class CamelCase<Camel, Case>() {};
-
 }
