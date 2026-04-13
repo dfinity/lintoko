@@ -109,28 +109,21 @@ fn apply_rule(rule: &Rule, tree: Node, input: &str) -> Result<Vec<RawDiagnostic>
     let mut types_cache = HashMap::new();
     while let Some(m) = matches.next() {
         // Works around a tree-sitter bug that doesn't let us use trailing anchors: https://github.com/tree-sitter/tree-sitter/issues/4558
-        if let Some(trailing_capture_index) = trailing_capture_index
-            && m.nodes_for_capture_index(trailing_capture_index)
-                .any(|n| n.next_named_sibling().is_some())
-        {
-            continue;
-        };
-        // Evaluate custom predicates
-        let predicates = query.general_predicates(m.pattern_index);
-        if !predicates.is_empty()
-            && !custom_predicates::evaluate_predicates(predicates, m.captures, &mut types_cache)?
-        {
+        // https://github.com/tree-sitter/tree-sitter/issues/4558
+        if custom_predicates::should_skip_match(
+            m,
+            &query,
+            trailing_capture_index,
+            &mut types_cache,
+        )? {
             continue;
         }
         for error_node in m.nodes_for_capture_index(error_capture_index) {
             // NOTE: We have to use `to_vec` here, or tree-sitter will silently swap the captures under our feet.
             errors.push((error_node.range(), m.captures.to_vec()));
         }
-
         if let Some(filter_capture_index) = filter_capture_index {
-            for filter_node in m.nodes_for_capture_index(filter_capture_index) {
-                filtered.insert(filter_node.range());
-            }
+            custom_predicates::collect_filter_ranges(m, filter_capture_index, &mut filtered);
         }
     }
     let mut seen = HashSet::new();

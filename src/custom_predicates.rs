@@ -90,7 +90,7 @@ fn eval_depth_predicate<'q>(
     Ok(depth_fn(node, types) > threshold)
 }
 
-pub fn evaluate_predicates<'q>(
+fn evaluate_predicates<'q>(
     predicates: &'q [QueryPredicate],
     captures: &[QueryCapture<'_>],
     types_cache: &mut HashMap<&'q str, HashSet<&'q str>>,
@@ -108,6 +108,40 @@ pub fn evaluate_predicates<'q>(
     Ok(true)
 }
 
+// Workaround for tree-sitter bug: https://github.com/tree-sitter/tree-sitter/issues/4558
+fn is_trailing(m: &tree_sitter::QueryMatch, trailing_capture_index: u32) -> bool {
+    m.nodes_for_capture_index(trailing_capture_index)
+        .any(|n| n.next_named_sibling().is_some())
+}
+
+pub fn should_skip_match<'q>(
+    m: &tree_sitter::QueryMatch,
+    query: &'q tree_sitter::Query,
+    trailing_capture_index: Option<u32>,
+    types_cache: &mut HashMap<&'q str, HashSet<&'q str>>,
+) -> Result<bool> {
+    if let Some(idx) = trailing_capture_index
+        && is_trailing(m, idx)
+    {
+        return Ok(true);
+    }
+    let predicates = query.general_predicates(m.pattern_index);
+    if !predicates.is_empty() && !evaluate_predicates(predicates, m.captures, types_cache)? {
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+pub fn collect_filter_ranges(
+    m: &tree_sitter::QueryMatch,
+    filter_capture_index: u32,
+    out: &mut HashSet<tree_sitter::Range>,
+) {
+    for node in m.nodes_for_capture_index(filter_capture_index) {
+        out.insert(node.range());
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::{Config, Rule, lint_file};
@@ -121,7 +155,6 @@ mod test {
             query: r#"((obj_body) @error (#max-depth? @error "obj_body,block_exp" "2"))"#.into(),
             fix: None,
         };
-        // depth: obj_body(1) > block_exp(2) > block_exp(3) — exceeds threshold of 2
         let input = "actor { func f() { if (true) { 0 } } };";
         let res = lint_file(&Config::default(), "<test>", input, &[rule], &mut out).unwrap();
         assert_eq!(res.error_count, 1);
@@ -133,18 +166,12 @@ mod test {
         let rule = Rule {
             name: "too-deep".into(),
             description: "nesting too deep".into(),
-            // threshold 1: only flag obj_bodies with >1 level of block_exp nesting
             query: r#"((obj_body) @error (#max-depth? @error "block_exp" "1"))"#.into(),
             fix: None,
         };
-        // First actor: shallow (1 block_exp). Second actor: deep (2 block_exps).
-        // The query matches each obj_body independently. The first should NOT be
-        // flagged — its max depth is 1, not > 1. Before the fix, subtree_depth
-        // would walk into the second actor's subtree via goto_next_sibling and
-        // report depth 2 for both.
         let input = "actor { func f() { 0 } }; actor { func g() { if (true) { 0 } } };";
         let res = lint_file(&Config::default(), "<test>", input, &[rule], &mut out).unwrap();
-        assert_eq!(res.error_count, 1); // only the second actor
+        assert_eq!(res.error_count, 1);
     }
 
     #[test]
@@ -171,7 +198,6 @@ mod test {
                 .into(),
             fix: None,
         };
-        // Ancestors for innermost block_exp { 0 }: obj_body, block_exp, block_exp = 3 > 2
         let input = "actor { func f() { if (true) { if (true) { 0 } } } };";
         let res = lint_file(&Config::default(), "<test>", input, &[rule], &mut out).unwrap();
         assert_eq!(res.error_count, 1);
@@ -202,8 +228,6 @@ mod test {
                 .into(),
             fix: None,
         };
-        // block_exp "{ if... }" has ancestors: obj_body → count=1, not > 1 → not flagged
-        // block_exp "{ 0 }" has ancestors: obj_body, block_exp → count=2 > 1 → flagged
         let input = "actor { func f() { if (true) { 0 } } };";
         let res = lint_file(&Config::default(), "<test>", input, &[rule], &mut out).unwrap();
         assert_eq!(res.error_count, 1);
@@ -226,14 +250,73 @@ mod test {
 
     #[test]
     fn builtin_predicates_do_not_leak_into_general_predicates() {
-        // Verify that tree-sitter's built-in predicates (#eq?, #match?, etc.)
-        // are NOT returned by general_predicates() and thus don't hit our
-        // "Unknown custom predicate" error path.
         let mut out: Vec<u8> = vec![];
         let rule = Rule {
             name: "eq-test".into(),
             description: "pun: @field".into(),
             query: r#"((exp_field (identifier) @field (var_exp (identifier) @value)) @error (#eq? @field @value))"#.into(),
+            fix: None,
+        };
+        let input = "{ x = x }";
+        let res = lint_file(&Config::default(), "<test>", input, &[rule], &mut out).unwrap();
+        assert_eq!(res.error_count, 1);
+    }
+
+    #[test]
+    fn trailing_skips_match_with_next_sibling() {
+        let mut out: Vec<u8> = vec![];
+        let rule = Rule {
+            name: "unneeded-return".into(),
+            description: "unneeded return".into(),
+            query: r#"(func_dec (block_exp (exp_dec (return_exp)) @error @trailing))"#.into(),
+            fix: None,
+        };
+        let input = "actor { func f() { return 10; 20 }; };";
+        let res = lint_file(&Config::default(), "<test>", input, &[rule], &mut out).unwrap();
+        assert_eq!(res.error_count, 0);
+    }
+
+    #[test]
+    fn trailing_flags_match_without_next_sibling() {
+        let mut out: Vec<u8> = vec![];
+        let rule = Rule {
+            name: "unneeded-return".into(),
+            description: "unneeded return".into(),
+            query: r#"(func_dec (block_exp (exp_dec (return_exp)) @error @trailing))"#.into(),
+            fix: None,
+        };
+        let input = "actor { func f() { return 10 }; };";
+        let res = lint_file(&Config::default(), "<test>", input, &[rule], &mut out).unwrap();
+        assert_eq!(res.error_count, 1);
+    }
+
+    #[test]
+    fn filter_suppresses_matching_error_range() {
+        let mut out: Vec<u8> = vec![];
+        let rule = Rule {
+            name: "pun-fields".into(),
+            description: "use punning".into(),
+            query: r#"
+                ((exp_field (identifier) @field (var_exp (identifier) @value)) @error (#eq? @field @value))
+                (exp_field "var" (identifier) @field (var_exp (identifier) @value)) @filter
+            "#.into(),
+            fix: None,
+        };
+        let input = "{ var x = x }";
+        let res = lint_file(&Config::default(), "<test>", input, &[rule], &mut out).unwrap();
+        assert_eq!(res.error_count, 0);
+    }
+
+    #[test]
+    fn filter_does_not_suppress_non_matching_range() {
+        let mut out: Vec<u8> = vec![];
+        let rule = Rule {
+            name: "pun-fields".into(),
+            description: "use punning".into(),
+            query: r#"
+                ((exp_field (identifier) @field (var_exp (identifier) @value)) @error (#eq? @field @value))
+                (exp_field "var" (identifier) @field (var_exp (identifier) @value)) @filter
+            "#.into(),
             fix: None,
         };
         let input = "{ x = x }";
