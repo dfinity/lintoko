@@ -1,13 +1,13 @@
-use anyhow::{Context, Result, anyhow, bail};
+mod custom_predicates;
+
+use anyhow::{Context, Result, anyhow};
 use miette::{LabeledSpan, NamedSource, Severity, miette};
 use regex::Regex;
 use serde::Deserialize;
-use std::collections::hash_map::Entry;
-use std::{collections::{HashMap, HashSet}, fs, io::Write, path::Path};
+use std::{collections::HashSet, fs, io::Write, path::Path};
 use tracing::debug;
 use tree_sitter::{
-    Node, Parser, Query, QueryCapture, QueryCursor, QueryPredicate, QueryPredicateArg, Range,
-    StreamingIterator,
+    Node, Parser, Query, QueryCapture, QueryCursor, Range, StreamingIterator,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -91,125 +91,6 @@ fn template(
     Ok(new)
 }
 
-fn resolve_capture_node<'a>(
-    args: &[QueryPredicateArg],
-    idx: usize,
-    captures: &[QueryCapture<'a>],
-) -> Result<Node<'a>> {
-    match args.get(idx) {
-        Some(QueryPredicateArg::Capture(capture_idx)) => captures
-            .iter()
-            .find(|c| c.index == *capture_idx)
-            .map(|c| c.node)
-            .context("capture not found in match"),
-        Some(_) => bail!("expected capture argument at position {idx}"),
-        None => bail!("missing argument at position {idx}"),
-    }
-}
-
-fn resolve_string_arg<'a>(args: &'a [QueryPredicateArg], idx: usize) -> Result<&'a str> {
-    match args.get(idx) {
-        Some(QueryPredicateArg::String(s)) => Ok(s),
-        Some(_) => bail!("expected string argument at position {idx}"),
-        None => bail!("missing argument at position {idx}"),
-    }
-}
-
-fn nesting_depth(node: Node, types: &HashSet<&str>) -> usize {
-    let mut count = 0;
-    let mut current = node.parent();
-    while let Some(parent) = current {
-        if types.contains(parent.kind()) {
-            count += 1;
-        }
-        current = parent.parent();
-    }
-    count
-}
-
-fn max_depth(node: Node, types: &HashSet<&str>) -> usize {
-    let start_id = node.id();
-    let mut max = 0;
-    let mut current_depth = 0;
-    let mut cursor = node.walk();
-    // Iterative DFS using TreeCursor to avoid stack overflow on deep trees.
-    // We track start_id to avoid walking above the starting node.
-    'walk: loop {
-        if types.contains(cursor.node().kind()) {
-            current_depth += 1;
-            max = max.max(current_depth);
-        }
-        if cursor.goto_first_child() {
-            continue;
-        }
-        loop {
-            if types.contains(cursor.node().kind()) {
-                current_depth -= 1;
-            }
-            if cursor.goto_next_sibling() {
-                break;
-            }
-            if cursor.node().id() == start_id || !cursor.goto_parent() {
-                break 'walk;
-            }
-        }
-    }
-    max
-}
-
-fn evaluate_predicates(
-    predicates: &[QueryPredicate],
-    captures: &[QueryCapture<'_>],
-    input: &str,
-    sub_query_cache: &mut HashMap<String, Query>,
-) -> Result<bool> {
-    for pred in predicates {
-        let op = pred.operator.as_ref();
-        match op {
-            "has-descendant?" | "not-has-descendant?" => {
-                let node = resolve_capture_node(&pred.args, 0, captures)?;
-                let sub_query_str = resolve_string_arg(&pred.args, 1)?;
-                let sub_query = match sub_query_cache.entry(sub_query_str.to_string()) {
-                    Entry::Occupied(e) => e.into_mut(),
-                    Entry::Vacant(e) => e.insert(
-                        Query::new(&tree_sitter_motoko::LANGUAGE.into(), sub_query_str)
-                            .with_context(|| {
-                                format!("invalid sub-query in #{op}: {sub_query_str}")
-                            })?,
-                    ),
-                };
-                let negate = op == "not-has-descendant?";
-                let mut cursor = QueryCursor::new();
-                let mut sub_matches = cursor.matches(sub_query, node, input.as_bytes());
-                let found = sub_matches.next().is_some();
-                if found == negate {
-                    return Ok(false);
-                }
-            }
-            "nesting-depth?" | "max-depth?" => {
-                let node = resolve_capture_node(&pred.args, 0, captures)?;
-                let types_str = resolve_string_arg(&pred.args, 1)?;
-                let threshold: usize = resolve_string_arg(&pred.args, 2)?
-                    .parse()
-                    .with_context(|| format!("{op} threshold must be a number"))?;
-                let types: HashSet<&str> = types_str.split(',').map(str::trim).collect();
-                let depth = if op == "nesting-depth?" {
-                    nesting_depth(node, &types)
-                } else {
-                    max_depth(node, &types)
-                };
-                if depth <= threshold {
-                    return Ok(false);
-                }
-            }
-            unknown => {
-                bail!("Unknown custom predicate: #{unknown}");
-            }
-        }
-    }
-    Ok(true)
-}
-
 fn apply_rule(rule: &Rule, tree: Node, input: &str) -> Result<Vec<RawDiagnostic>> {
     let query = Query::new(&tree_sitter_motoko::LANGUAGE.into(), &rule.query)
         .with_context(|| format!("Failed to create query for rule '{}'", rule.name))?;
@@ -226,7 +107,6 @@ fn apply_rule(rule: &Rule, tree: Node, input: &str) -> Result<Vec<RawDiagnostic>
     let mut matches = cursor.matches(&query, tree, input.as_bytes());
     let mut filtered: HashSet<Range> = HashSet::new();
     let mut errors = Vec::new();
-    let mut sub_query_cache: HashMap<String, Query> = HashMap::new();
     while let Some(m) = matches.next() {
         // Works around a tree-sitter bug that doesn't let us use trailing anchors: https://github.com/tree-sitter/tree-sitter/issues/4558
         if let Some(trailing_capture_index) = trailing_capture_index
@@ -238,9 +118,8 @@ fn apply_rule(rule: &Rule, tree: Node, input: &str) -> Result<Vec<RawDiagnostic>
         // Evaluate custom predicates
         let predicates = query.general_predicates(m.pattern_index);
         if !predicates.is_empty() {
-            // Clone captures for evaluate_predicates — it needs owned data for sub-query cursors.
             let captures = m.captures.to_vec();
-            if !evaluate_predicates(predicates, &captures, input, &mut sub_query_cache)? {
+            if !custom_predicates::evaluate_predicates(predicates, &captures)? {
                 continue;
             }
         }
@@ -398,27 +277,6 @@ pub fn lint_file(
 mod test {
     use super::*;
 
-    fn has_descendant_rule() -> Rule {
-        Rule {
-            name: "has-return".into(),
-            description: "function body contains a return".into(),
-            query: r#"(func_dec (block_exp) @error (#has-descendant? @error "(return_exp)"))"#
-                .into(),
-            fix: None,
-        }
-    }
-
-    fn not_has_descendant_rule() -> Rule {
-        Rule {
-            name: "no-return".into(),
-            description: "function body lacks a return".into(),
-            query:
-                r#"(func_dec (block_exp) @error (#not-has-descendant? @error "(return_exp)"))"#
-                    .into(),
-            fix: None,
-        }
-    }
-
     #[test]
     fn no_rules() {
         let mut out: Vec<u8> = vec![];
@@ -494,46 +352,6 @@ mod test {
         )
         .unwrap();
         assert_eq!(res.fixed_file.unwrap(), "{ x }".to_string())
-    }
-
-    #[test]
-    fn has_descendant_matches_when_present() {
-        let mut out: Vec<u8> = vec![];
-        let input = "actor { func f() { return 10 }; };";
-        let res = lint_file(&Config::default(), "<test>", input, &[has_descendant_rule()], &mut out).unwrap();
-        assert_eq!(res.error_count, 1);
-    }
-
-    #[test]
-    fn has_descendant_skips_when_absent() {
-        let mut out: Vec<u8> = vec![];
-        let input = "actor { func f() { 10 }; };";
-        let res = lint_file(&Config::default(), "<test>", input, &[has_descendant_rule()], &mut out).unwrap();
-        assert_eq!(res.error_count, 0);
-    }
-
-    #[test]
-    fn not_has_descendant_matches_when_absent() {
-        let mut out: Vec<u8> = vec![];
-        let input = "actor { func f() { 10 }; };";
-        let res = lint_file(&Config::default(), "<test>", input, &[not_has_descendant_rule()], &mut out).unwrap();
-        assert_eq!(res.error_count, 1);
-    }
-
-    #[test]
-    fn not_has_descendant_skips_when_present() {
-        let mut out: Vec<u8> = vec![];
-        let input = "actor { func f() { return 10 }; };";
-        let res = lint_file(&Config::default(), "<test>", input, &[not_has_descendant_rule()], &mut out).unwrap();
-        assert_eq!(res.error_count, 0);
-    }
-
-    #[test]
-    fn has_descendant_finds_deeply_nested() {
-        let mut out: Vec<u8> = vec![];
-        let input = "actor { func f() { if (true) { if (true) { if (true) { return 1 } } } }; };";
-        let res = lint_file(&Config::default(), "<test>", input, &[has_descendant_rule()], &mut out).unwrap();
-        assert_eq!(res.error_count, 1);
     }
 
     #[test]
