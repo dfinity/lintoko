@@ -1,5 +1,6 @@
 ---
 source: src/lib.rs
+assertion_line: 290
 expression: lint_output
 ---
   × [ERROR]: no-result
@@ -347,12 +348,12 @@ expression: lint_output
  111 │   class CamelCase<Camel, Case>() {};
      ╰────
 
-  × [ERROR]: max-nestedness
+  × [ERROR]: nesting-limit
      ╭─[<input_path>:122:29]
  121 │                     if (true) {
  122 │ ╭─▶                   if (true) {
  123 │ │                       0
  124 │ ├─▶                   };
-     · ╰──── Nesting depth exceeded maximum allowed depth of 8
+     · ╰──── Nesting depth exceeded maximum allowed depth of 9
  125 │                     };
      ╰────

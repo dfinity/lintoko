@@ -87,7 +87,7 @@ fn eval_depth_predicate<'q>(
         Entry::Occupied(e) => e.into_mut(),
         Entry::Vacant(e) => e.insert(types_str.split(',').map(str::trim).collect()),
     };
-    Ok(depth_fn(node, types) > threshold)
+    Ok(depth_fn(node, types) >= threshold)
 }
 
 fn evaluate_predicates<'q>(
@@ -96,9 +96,17 @@ fn evaluate_predicates<'q>(
     types_cache: &mut HashMap<&'q str, HashSet<&'q str>>,
 ) -> Result<bool> {
     for pred in predicates {
-        let pass = match pred.operator.as_ref() {
-            "nesting-depth?" => eval_depth_predicate(pred, captures, types_cache, ancestor_depth)?,
-            "max-depth?" => eval_depth_predicate(pred, captures, types_cache, subtree_depth)?,
+        let op = pred.operator.as_ref();
+        let pass = match op {
+            "ancestor-depth?" | "subtree-depth?" => {
+                let depth_fn = if op == "ancestor-depth?" {
+                    ancestor_depth as fn(Node, &HashSet<&str>) -> usize
+                } else {
+                    subtree_depth
+                };
+                eval_depth_predicate(pred, captures, types_cache, depth_fn)
+                    .with_context(|| format!("in #{op}"))?
+            }
             unknown => bail!("Unknown custom predicate: #{unknown}"),
         };
         if !pass {
@@ -109,36 +117,53 @@ fn evaluate_predicates<'q>(
 }
 
 // Workaround for tree-sitter bug: https://github.com/tree-sitter/tree-sitter/issues/4558
-fn is_trailing(m: &tree_sitter::QueryMatch, trailing_capture_index: u32) -> bool {
-    m.nodes_for_capture_index(trailing_capture_index)
+fn is_trailing(m: &tree_sitter::QueryMatch, idx: u32) -> bool {
+    m.nodes_for_capture_index(idx)
         .any(|n| n.next_named_sibling().is_some())
 }
 
-pub fn should_skip_match<'q>(
-    m: &tree_sitter::QueryMatch,
+pub struct MatchEvaluator<'q> {
     query: &'q tree_sitter::Query,
-    trailing_capture_index: Option<u32>,
-    types_cache: &mut HashMap<&'q str, HashSet<&'q str>>,
-) -> Result<bool> {
-    if let Some(idx) = trailing_capture_index
-        && is_trailing(m, idx)
-    {
-        return Ok(true);
-    }
-    let predicates = query.general_predicates(m.pattern_index);
-    if !predicates.is_empty() && !evaluate_predicates(predicates, m.captures, types_cache)? {
-        return Ok(true);
-    }
-    Ok(false)
+    trailing_idx: Option<u32>,
+    filter_idx: Option<u32>,
+    types_cache: HashMap<&'q str, HashSet<&'q str>>,
 }
 
-pub fn collect_filter_ranges(
-    m: &tree_sitter::QueryMatch,
-    filter_capture_index: u32,
-    out: &mut HashSet<tree_sitter::Range>,
-) {
-    for node in m.nodes_for_capture_index(filter_capture_index) {
-        out.insert(node.range());
+impl<'q> MatchEvaluator<'q> {
+    pub fn new(query: &'q tree_sitter::Query) -> Self {
+        Self {
+            trailing_idx: query.capture_index_for_name("trailing"),
+            filter_idx: query.capture_index_for_name("filter"),
+            types_cache: HashMap::new(),
+            query,
+        }
+    }
+
+    pub fn should_skip(&mut self, m: &tree_sitter::QueryMatch) -> Result<bool> {
+        if let Some(idx) = self.trailing_idx
+            && is_trailing(m, idx)
+        {
+            return Ok(true);
+        }
+        let predicates = self.query.general_predicates(m.pattern_index);
+        if !predicates.is_empty()
+            && !evaluate_predicates(predicates, m.captures, &mut self.types_cache)?
+        {
+            return Ok(true);
+        }
+        Ok(false)
+    }
+
+    pub fn collect_filter_ranges(
+        &self,
+        m: &tree_sitter::QueryMatch,
+        out: &mut HashSet<tree_sitter::Range>,
+    ) {
+        if let Some(idx) = self.filter_idx {
+            for node in m.nodes_for_capture_index(idx) {
+                out.insert(node.range());
+            }
+        }
     }
 }
 
@@ -146,181 +171,142 @@ pub fn collect_filter_ranges(
 mod test {
     use crate::{Config, Rule, lint_file};
 
-    #[test]
-    fn max_depth_fires_above_threshold() {
+    fn assert_lint_count(query: &str, input: &str, expected: usize) {
         let mut out: Vec<u8> = vec![];
         let rule = Rule {
-            name: "too-deep".into(),
-            description: "nesting too deep".into(),
-            query: r#"((obj_body) @error (#max-depth? @error "obj_body,block_exp" "2"))"#.into(),
+            name: "test".into(),
+            description: "test".into(),
+            query: query.into(),
             fix: None,
         };
-        let input = "actor { func f() { if (true) { 0 } } };";
         let res = lint_file(&Config::default(), "<test>", input, &[rule], &mut out).unwrap();
-        assert_eq!(res.error_count, 1);
+        assert_eq!(res.error_count, expected);
+    }
+
+    fn assert_lint_errors(query: &str, input: &str, expected_err: &str) {
+        let mut out: Vec<u8> = vec![];
+        let rule = Rule {
+            name: "test".into(),
+            description: "test".into(),
+            query: query.into(),
+            fix: None,
+        };
+        let res = lint_file(&Config::default(), "<test>", input, &[rule], &mut out);
+        assert!(res.is_err());
+        assert!(res.unwrap_err().to_string().contains(expected_err));
     }
 
     #[test]
-    fn max_depth_does_not_leak_into_siblings() {
-        let mut out: Vec<u8> = vec![];
-        let rule = Rule {
-            name: "too-deep".into(),
-            description: "nesting too deep".into(),
-            query: r#"((obj_body) @error (#max-depth? @error "block_exp" "1"))"#.into(),
-            fix: None,
-        };
-        let input = "actor { func f() { 0 } }; actor { func g() { if (true) { 0 } } };";
-        let res = lint_file(&Config::default(), "<test>", input, &[rule], &mut out).unwrap();
-        assert_eq!(res.error_count, 1);
+    fn subtree_depth_fires_above_threshold() {
+        assert_lint_count(
+            r#"((obj_body) @error (#subtree-depth? @error "obj_body,block_exp" "2"))"#,
+            "actor { func f() { if (true) { 0 } } };",
+            1,
+        );
     }
 
     #[test]
-    fn max_depth_silent_at_threshold() {
-        let mut out: Vec<u8> = vec![];
-        let rule = Rule {
-            name: "too-deep".into(),
-            description: "nesting too deep".into(),
-            query: r#"((obj_body) @error (#max-depth? @error "obj_body,block_exp" "5"))"#.into(),
-            fix: None,
-        };
-        let input = "actor { func f() { 0 } };";
-        let res = lint_file(&Config::default(), "<test>", input, &[rule], &mut out).unwrap();
-        assert_eq!(res.error_count, 0);
+    fn subtree_depth_does_not_leak_into_siblings() {
+        assert_lint_count(
+            r#"((obj_body) @error (#subtree-depth? @error "block_exp" "2"))"#,
+            "actor { func f() { 0 } }; actor { func g() { if (true) { 0 } } };",
+            1,
+        );
     }
 
     #[test]
-    fn nesting_depth_fires_on_deep_block() {
-        let mut out: Vec<u8> = vec![];
-        let rule = Rule {
-            name: "too-nested".into(),
-            description: "too nested".into(),
-            query: r#"((block_exp) @error (#nesting-depth? @error "obj_body,block_exp" "2"))"#
-                .into(),
-            fix: None,
-        };
-        let input = "actor { func f() { if (true) { if (true) { 0 } } } };";
-        let res = lint_file(&Config::default(), "<test>", input, &[rule], &mut out).unwrap();
-        assert_eq!(res.error_count, 1);
+    fn subtree_depth_silent_at_threshold() {
+        assert_lint_count(
+            r#"((obj_body) @error (#subtree-depth? @error "obj_body,block_exp" "5"))"#,
+            "actor { func f() { 0 } };",
+            0,
+        );
     }
 
     #[test]
-    fn nesting_depth_silent_on_shallow_block() {
-        let mut out: Vec<u8> = vec![];
-        let rule = Rule {
-            name: "too-nested".into(),
-            description: "too nested".into(),
-            query: r#"((block_exp) @error (#nesting-depth? @error "obj_body,block_exp" "8"))"#
-                .into(),
-            fix: None,
-        };
-        let input = "actor { func f() { 0 } };";
-        let res = lint_file(&Config::default(), "<test>", input, &[rule], &mut out).unwrap();
-        assert_eq!(res.error_count, 0);
+    fn ancestor_depth_fires_on_deep_block() {
+        assert_lint_count(
+            r#"((block_exp) @error (#ancestor-depth? @error "obj_body,block_exp" "3"))"#,
+            "actor { func f() { if (true) { if (true) { 0 } } } };",
+            1,
+        );
     }
 
     #[test]
-    fn nesting_depth_flags_only_deep_blocks_not_ancestors() {
-        let mut out: Vec<u8> = vec![];
-        let rule = Rule {
-            name: "too-nested".into(),
-            description: "too nested".into(),
-            query: r#"((block_exp) @error (#nesting-depth? @error "obj_body,block_exp" "1"))"#
-                .into(),
-            fix: None,
-        };
-        let input = "actor { func f() { if (true) { 0 } } };";
-        let res = lint_file(&Config::default(), "<test>", input, &[rule], &mut out).unwrap();
-        assert_eq!(res.error_count, 1);
+    fn ancestor_depth_silent_on_shallow_block() {
+        assert_lint_count(
+            r#"((block_exp) @error (#ancestor-depth? @error "obj_body,block_exp" "8"))"#,
+            "actor { func f() { 0 } };",
+            0,
+        );
+    }
+
+    #[test]
+    fn ancestor_depth_flags_only_deep_blocks() {
+        assert_lint_count(
+            r#"((block_exp) @error (#ancestor-depth? @error "obj_body,block_exp" "2"))"#,
+            "actor { func f() { if (true) { 0 } } };",
+            1,
+        );
     }
 
     #[test]
     fn unknown_predicate_errors() {
-        let mut out: Vec<u8> = vec![];
-        let rule = Rule {
-            name: "bad".into(),
-            description: "bad".into(),
-            query: r#"((func_dec) @error (#bogus-pred? @error "x"))"#.into(),
-            fix: None,
-        };
-        let input = "actor { func f() {} };";
-        let res = lint_file(&Config::default(), "<test>", input, &[rule], &mut out);
-        assert!(res.is_err());
-        assert!(res.unwrap_err().to_string().contains("bogus-pred?"));
+        assert_lint_errors(
+            r#"((func_dec) @error (#bogus-pred? @error "x"))"#,
+            "actor { func f() {} };",
+            "bogus-pred?",
+        );
     }
 
     #[test]
     fn builtin_predicates_do_not_leak_into_general_predicates() {
-        let mut out: Vec<u8> = vec![];
-        let rule = Rule {
-            name: "eq-test".into(),
-            description: "pun: @field".into(),
-            query: r#"((exp_field (identifier) @field (var_exp (identifier) @value)) @error (#eq? @field @value))"#.into(),
-            fix: None,
-        };
-        let input = "{ x = x }";
-        let res = lint_file(&Config::default(), "<test>", input, &[rule], &mut out).unwrap();
-        assert_eq!(res.error_count, 1);
+        assert_lint_count(
+            r#"((exp_field (identifier) @field (var_exp (identifier) @value)) @error (#eq? @field @value))"#,
+            "{ x = x }",
+            1,
+        );
     }
 
     #[test]
     fn trailing_skips_match_with_next_sibling() {
-        let mut out: Vec<u8> = vec![];
-        let rule = Rule {
-            name: "unneeded-return".into(),
-            description: "unneeded return".into(),
-            query: r#"(func_dec (block_exp (exp_dec (return_exp)) @error @trailing))"#.into(),
-            fix: None,
-        };
-        let input = "actor { func f() { return 10; 20 }; };";
-        let res = lint_file(&Config::default(), "<test>", input, &[rule], &mut out).unwrap();
-        assert_eq!(res.error_count, 0);
+        assert_lint_count(
+            r#"(func_dec (block_exp (exp_dec (return_exp)) @error @trailing))"#,
+            "actor { func f() { return 10; 20 }; };",
+            0,
+        );
     }
 
     #[test]
     fn trailing_flags_match_without_next_sibling() {
-        let mut out: Vec<u8> = vec![];
-        let rule = Rule {
-            name: "unneeded-return".into(),
-            description: "unneeded return".into(),
-            query: r#"(func_dec (block_exp (exp_dec (return_exp)) @error @trailing))"#.into(),
-            fix: None,
-        };
-        let input = "actor { func f() { return 10 }; };";
-        let res = lint_file(&Config::default(), "<test>", input, &[rule], &mut out).unwrap();
-        assert_eq!(res.error_count, 1);
+        assert_lint_count(
+            r#"(func_dec (block_exp (exp_dec (return_exp)) @error @trailing))"#,
+            "actor { func f() { return 10 }; };",
+            1,
+        );
     }
 
     #[test]
     fn filter_suppresses_matching_error_range() {
-        let mut out: Vec<u8> = vec![];
-        let rule = Rule {
-            name: "pun-fields".into(),
-            description: "use punning".into(),
-            query: r#"
+        assert_lint_count(
+            r#"
                 ((exp_field (identifier) @field (var_exp (identifier) @value)) @error (#eq? @field @value))
                 (exp_field "var" (identifier) @field (var_exp (identifier) @value)) @filter
-            "#.into(),
-            fix: None,
-        };
-        let input = "{ var x = x }";
-        let res = lint_file(&Config::default(), "<test>", input, &[rule], &mut out).unwrap();
-        assert_eq!(res.error_count, 0);
+            "#,
+            "{ var x = x }",
+            0,
+        );
     }
 
     #[test]
     fn filter_does_not_suppress_non_matching_range() {
-        let mut out: Vec<u8> = vec![];
-        let rule = Rule {
-            name: "pun-fields".into(),
-            description: "use punning".into(),
-            query: r#"
+        assert_lint_count(
+            r#"
                 ((exp_field (identifier) @field (var_exp (identifier) @value)) @error (#eq? @field @value))
                 (exp_field "var" (identifier) @field (var_exp (identifier) @value)) @filter
-            "#.into(),
-            fix: None,
-        };
-        let input = "{ x = x }";
-        let res = lint_file(&Config::default(), "<test>", input, &[rule], &mut out).unwrap();
-        assert_eq!(res.error_count, 1);
+            "#,
+            "{ x = x }",
+            1,
+        );
     }
 }
