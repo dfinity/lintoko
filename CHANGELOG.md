@@ -1,5 +1,8 @@
 # Unreleased
 
+# 0.9.0
+- feat: allows matching/linting on nesting depth [#31](https://github.com/caffeinelabs/lintoko/pull/31)
+
 # 0.8.0
 - chore: updates grammar version
 - chore: produces linux-arm64 binaries on release

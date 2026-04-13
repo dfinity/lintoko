@@ -1,6 +1,6 @@
 [package]
 name = "lintoko"
-version = "0.8.0"
+version = "0.9.0"
 edition = "2024"
 repository = "https://github.com/caffeinelabs/lintoko"
 license = "Apache-2.0"
@@ -13,7 +13,7 @@ name = "lintoko"
 
 [dependencies]
 tree-sitter = "0.26"
-tree-sitter-motoko = { git = "https://github.com/christoph-dfinity/tree-sitter-motoko", rev = "7ac86fe61f9e4708dc01cecdd556c35d5d9d49d7" }
+tree-sitter-motoko = { git = "https://github.com/christoph-dfinity/tree-sitter-motoko", rev = "9de81ac8acee791b238727dabb6beec0c3a6eb0a" }
 clap = { version = "4.5", features = ["derive"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
