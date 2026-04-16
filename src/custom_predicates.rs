@@ -178,6 +178,7 @@ mod test {
             description: "test".into(),
             query: query.into(),
             fix: None,
+            severity: Default::default(),
         };
         let res = lint_file(&Config::default(), "<test>", input, &[rule], &mut out).unwrap();
         assert_eq!(res.error_count, expected);
@@ -190,6 +191,7 @@ mod test {
             description: "test".into(),
             query: query.into(),
             fix: None,
+            severity: Default::default(),
         };
         let res = lint_file(&Config::default(), "<test>", input, &[rule], &mut out);
         assert!(res.is_err());
