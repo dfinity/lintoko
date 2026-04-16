@@ -16,17 +16,12 @@ pub enum OutputFormat {
     Text,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum RuleSeverity {
     Warning,
+    #[default]
     Error,
-}
-
-impl Default for RuleSeverity {
-    fn default() -> Self {
-        RuleSeverity::Error
-    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -279,14 +274,13 @@ pub fn lint_file(
         )?
     }
 
-    let error_count = diagnostics
-        .iter()
-        .filter(|d| d.severity == RuleSeverity::Error)
-        .count();
-    let warning_count = diagnostics
-        .iter()
-        .filter(|d| d.severity == RuleSeverity::Warning)
-        .count();
+    let (error_count, warning_count) =
+        diagnostics
+            .iter()
+            .fold((0, 0), |(e, w), d| match d.severity {
+                RuleSeverity::Error => (e + 1, w),
+                RuleSeverity::Warning => (e, w + 1),
+            });
 
     Ok(LintResult {
         error_count,
@@ -343,6 +337,7 @@ mod test {
         let rules = load_rules_from_directory(Path::new("example-rules")).unwrap();
         let _err_count = lint_file(
             &Config {
+                fix: false,
                 format: OutputFormat::Text,
                 ..Config::default()
             },
@@ -413,5 +408,25 @@ mod test {
         .unwrap();
         assert_eq!(res.error_count, 1);
         assert_eq!(res.warning_count, 0);
+    }
+
+    #[test]
+    fn severity_override_demotes_errors_to_warnings() {
+        let mut out: Vec<u8> = vec![];
+        let rule = load_rule_from_file(Path::new("example-rules/no-let-else.toml")).unwrap();
+        assert_eq!(rule.severity, RuleSeverity::Error);
+        let res = lint_file(
+            &Config {
+                severity_override: Some(RuleSeverity::Warning),
+                ..Config::default()
+            },
+            "<input_path>",
+            "let ?x = foo() else { return }",
+            &[rule],
+            &mut out,
+        )
+        .unwrap();
+        assert_eq!(res.error_count, 0);
+        assert_eq!(res.warning_count, 1);
     }
 }
