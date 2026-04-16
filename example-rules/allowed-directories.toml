@@ -1,0 +1,11 @@
+name = "allowed-directories"
+description = "Motoko files must live in an allowed backend directory"
+query = '''
+((source_file) @error
+ (#not-match-file? "^backend/types/")
+ (#not-match-file? "^backend/lib/")
+ (#not-match-file? "^backend/mixins/")
+ (#not-match-file? "^backend/migrations/")
+ (#not-match-file? "^backend/next-migration/")
+ (#not-match-file? "^backend/main\.mo$"))
+'''

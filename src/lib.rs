@@ -102,7 +102,7 @@ fn template(
     Ok(new)
 }
 
-fn apply_rule(rule: &Rule, tree: Node, input: &str) -> Result<Vec<RawDiagnostic>> {
+fn apply_rule(rule: &Rule, tree: Node, input: &str, path: &str) -> Result<Vec<RawDiagnostic>> {
     let query = Query::new(&tree_sitter_motoko::LANGUAGE.into(), &rule.query)
         .with_context(|| format!("Failed to create query for rule '{}'", rule.name))?;
     let error_capture_index = query.capture_index_for_name("error").with_context(|| {
@@ -111,7 +111,7 @@ fn apply_rule(rule: &Rule, tree: Node, input: &str) -> Result<Vec<RawDiagnostic>
             rule.query
         )
     })?;
-    let mut evaluator = custom_predicates::MatchEvaluator::new(&query);
+    let mut evaluator = custom_predicates::MatchEvaluator::new(&query, path);
     let mut cursor = QueryCursor::new();
     let mut matches = cursor.matches(&query, tree, input.as_bytes());
     let mut filtered: HashSet<Range> = HashSet::new();
@@ -225,7 +225,7 @@ pub fn lint_file(
     let tree = parser.parse(input.as_bytes(), None).unwrap();
     let mut diagnostics = Vec::new();
     for rule in rules {
-        diagnostics.extend(apply_rule(rule, tree.root_node(), input)?);
+        diagnostics.extend(apply_rule(rule, tree.root_node(), input, path)?);
     }
     if let Some(severity) = config.severity_override {
         for d in &mut diagnostics {
@@ -309,6 +309,11 @@ mod test {
         assert_eq!(str::from_utf8(&out).unwrap(), "");
     }
 
+    /// Snapshot tests use a project-relative path that satisfies all path-dependent
+    /// example rules: `backend/main.mo` is allow-listed by `allowed-directories` and
+    /// does not match `^backend/types/`, so `types-only` is silent.
+    const SNAPSHOT_PATH: &str = "backend/main.mo";
+
     #[test]
     fn it_lints_example_rules() {
         let mut out: Vec<u8> = vec![];
@@ -318,7 +323,7 @@ mod test {
         let rules = load_rules_from_directory(Path::new("example-rules")).unwrap();
         let _ = lint_file(
             &Config::default(),
-            "<input_path>",
+            SNAPSHOT_PATH,
             include_str!("../test-data.mo"),
             &rules,
             &mut out,
@@ -341,7 +346,7 @@ mod test {
                 format: OutputFormat::Text,
                 ..Config::default()
             },
-            "<input_path>",
+            SNAPSHOT_PATH,
             include_str!("../test-data.mo"),
             &rules,
             &mut out,

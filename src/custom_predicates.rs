@@ -1,4 +1,5 @@
 use anyhow::{Context, Result, bail};
+use regex::Regex;
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use tree_sitter::{Node, QueryCapture, QueryPredicate, QueryPredicateArg};
@@ -90,10 +91,29 @@ fn eval_depth_predicate<'q>(
     Ok(depth_fn(node, types) >= threshold)
 }
 
+fn eval_file_predicate<'q>(
+    pred: &'q QueryPredicate,
+    file_path: &str,
+    regex_cache: &mut HashMap<&'q str, Regex>,
+) -> Result<bool> {
+    let pattern = resolve_string_arg(&pred.args, 0)?;
+    let regex = match regex_cache.entry(pattern) {
+        Entry::Occupied(e) => e.into_mut(),
+        Entry::Vacant(e) => {
+            let compiled = Regex::new(pattern)
+                .with_context(|| format!("invalid regex pattern {pattern:?}"))?;
+            e.insert(compiled)
+        }
+    };
+    Ok(regex.is_match(file_path))
+}
+
 fn evaluate_predicates<'q>(
     predicates: &'q [QueryPredicate],
     captures: &[QueryCapture<'_>],
+    file_path: &str,
     types_cache: &mut HashMap<&'q str, HashSet<&'q str>>,
+    regex_cache: &mut HashMap<&'q str, Regex>,
 ) -> Result<bool> {
     for pred in predicates {
         let op = pred.operator.as_ref();
@@ -107,6 +127,10 @@ fn evaluate_predicates<'q>(
                 eval_depth_predicate(pred, captures, types_cache, depth_fn)
                     .with_context(|| format!("in #{op}"))?
             }
+            "match-file?" => eval_file_predicate(pred, file_path, regex_cache)
+                .with_context(|| format!("in #{op}"))?,
+            "not-match-file?" => !eval_file_predicate(pred, file_path, regex_cache)
+                .with_context(|| format!("in #{op}"))?,
             unknown => bail!("Unknown custom predicate: #{unknown}"),
         };
         if !pass {
@@ -122,19 +146,23 @@ fn is_trailing(m: &tree_sitter::QueryMatch, idx: u32) -> bool {
         .any(|n| n.next_named_sibling().is_some())
 }
 
-pub struct MatchEvaluator<'q> {
+pub struct MatchEvaluator<'q, 'p> {
     query: &'q tree_sitter::Query,
     trailing_idx: Option<u32>,
     filter_idx: Option<u32>,
+    file_path: &'p str,
     types_cache: HashMap<&'q str, HashSet<&'q str>>,
+    regex_cache: HashMap<&'q str, Regex>,
 }
 
-impl<'q> MatchEvaluator<'q> {
-    pub fn new(query: &'q tree_sitter::Query) -> Self {
+impl<'q, 'p> MatchEvaluator<'q, 'p> {
+    pub fn new(query: &'q tree_sitter::Query, file_path: &'p str) -> Self {
         Self {
             trailing_idx: query.capture_index_for_name("trailing"),
             filter_idx: query.capture_index_for_name("filter"),
+            file_path,
             types_cache: HashMap::new(),
+            regex_cache: HashMap::new(),
             query,
         }
     }
@@ -147,7 +175,13 @@ impl<'q> MatchEvaluator<'q> {
         }
         let predicates = self.query.general_predicates(m.pattern_index);
         if !predicates.is_empty()
-            && !evaluate_predicates(predicates, m.captures, &mut self.types_cache)?
+            && !evaluate_predicates(
+                predicates,
+                m.captures,
+                self.file_path,
+                &mut self.types_cache,
+                &mut self.regex_cache,
+            )?
         {
             return Ok(true);
         }
@@ -169,9 +203,14 @@ impl<'q> MatchEvaluator<'q> {
 
 #[cfg(test)]
 mod test {
-    use crate::{Config, Rule, lint_file};
+    use crate::{Config, Rule, lint_file, load_rule_from_file};
+    use std::path::Path;
 
     fn assert_lint_count(query: &str, input: &str, expected: usize) {
+        assert_lint_count_at_path(query, input, "<test>", expected);
+    }
+
+    fn assert_lint_count_at_path(query: &str, input: &str, path: &str, expected: usize) {
         let mut out: Vec<u8> = vec![];
         let rule = Rule {
             name: "test".into(),
@@ -180,7 +219,7 @@ mod test {
             fix: None,
             severity: Default::default(),
         };
-        let res = lint_file(&Config::default(), "<test>", input, &[rule], &mut out).unwrap();
+        let res = lint_file(&Config::default(), path, input, &[rule], &mut out).unwrap();
         assert_eq!(res.error_count, expected);
     }
 
@@ -195,7 +234,8 @@ mod test {
         };
         let res = lint_file(&Config::default(), "<test>", input, &[rule], &mut out);
         assert!(res.is_err());
-        assert!(res.unwrap_err().to_string().contains(expected_err));
+        let err = format!("{:#}", res.unwrap_err());
+        assert!(err.contains(expected_err), "unexpected error: {err}");
     }
 
     #[test]
@@ -310,5 +350,80 @@ mod test {
             "{ x = x }",
             1,
         );
+    }
+
+    #[test]
+    fn match_file_respects_path() {
+        let q = r#"((source_file) @error (#match-file? "^backend/types/"))"#;
+        assert_lint_count_at_path(q, "actor { };", "backend/types/foo.mo", 1);
+        assert_lint_count_at_path(q, "actor { };", "backend/lib/foo.mo", 0);
+    }
+
+    #[test]
+    fn not_match_file_is_inverse() {
+        let q = r#"((source_file) @error (#not-match-file? "^backend/types/"))"#;
+        assert_lint_count_at_path(q, "actor { };", "backend/lib/foo.mo", 1);
+        assert_lint_count_at_path(q, "actor { };", "backend/types/foo.mo", 0);
+    }
+
+    #[test]
+    fn multiple_not_match_file_predicates_are_anded() {
+        let q = r#"
+            ((source_file) @error
+             (#not-match-file? "^backend/types/")
+             (#not-match-file? "^backend/lib/"))
+        "#;
+        assert_lint_count_at_path(q, "actor { };", "src/foo.mo", 1);
+        assert_lint_count_at_path(q, "actor { };", "backend/types/foo.mo", 0);
+        assert_lint_count_at_path(q, "actor { };", "backend/lib/foo.mo", 0);
+    }
+
+    #[test]
+    fn invalid_regex_errors() {
+        assert_lint_errors(
+            r#"((source_file) @error (#match-file? "["))"#,
+            "actor { };",
+            "invalid regex",
+        );
+    }
+
+    fn assert_rule_count(rule_path: &str, source: &str, file_path: &str, expected: usize) {
+        let mut out: Vec<u8> = vec![];
+        let rule = load_rule_from_file(Path::new(rule_path)).unwrap();
+        let res = lint_file(&Config::default(), file_path, source, &[rule], &mut out).unwrap();
+        assert_eq!(
+            res.error_count, expected,
+            "rule {rule_path} at {file_path}: expected {expected} errors"
+        );
+    }
+
+    #[test]
+    fn allowed_directories_rule() {
+        let rule = "example-rules/allowed-directories.toml";
+        let src = "actor { };";
+        for (path, expected) in [
+            ("backend/lib/foo.mo", 0),
+            ("backend/types/foo.mo", 0),
+            ("backend/mixins/foo.mo", 0),
+            ("backend/migrations/001.mo", 0),
+            ("backend/next-migration/foo.mo", 0),
+            ("backend/main.mo", 0),
+            ("src/foo.mo", 1),
+            ("backend/other/foo.mo", 1),
+            ("backend/main2.mo", 1),
+        ] {
+            assert_rule_count(rule, src, path, expected);
+        }
+    }
+
+    #[test]
+    fn types_only_scoped_by_path() {
+        let rule = "example-rules/types-only.toml";
+        let mixed_src = "module { public type T = Nat; public func f() {} };";
+        assert_rule_count(rule, mixed_src, "backend/types/foo.mo", 1);
+        assert_rule_count(rule, mixed_src, "backend/lib/foo.mo", 0);
+
+        let only_types = "module { public type T = Nat };";
+        assert_rule_count(rule, only_types, "backend/types/foo.mo", 0);
     }
 }

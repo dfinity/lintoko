@@ -2,165 +2,165 @@
 source: src/lib.rs
 expression: lint_output
 ---
-<input_path>:1:0 Error: Do not use the Result pattern. Use Runtime.trap() instead.
+backend/main.mo:1:0 Error: Do not use the Result pattern. Use Runtime.trap() instead.
 Found in:
 1 import Result "mo:base/Result";
 
-<input_path>:3:0 Error: Do not use data structures from pure/*. Use imperative structures instead.
+backend/main.mo:3:0 Error: Do not use data structures from pure/*. Use imperative structures instead.
 Found in:
 3 import PureList "mo:core/pure/List";
 
-<input_path>:5:7 Error: Do not use `shared(msg)`. Use `shared({ caller })` instead.
+backend/main.mo:5:7 Error: Do not use `shared(msg)`. Use `shared({ caller })` instead.
 Found in:
 5 shared (msg) actor class() {
 
-<input_path>:7:4 Error: Do not use let-else. Use a switch instead.
+backend/main.mo:7:4 Error: Do not use let-else. Use a switch instead.
 Found in:
 7     let ?x = null else { return };
 
-<input_path>:10:2 Error: Do not use the `flexible` keyword. Use `transient` instead.
+backend/main.mo:10:2 Error: Do not use the `flexible` keyword. Use `transient` instead.
 Found in:
 10   flexible let flexibleLet = 42;
 
-<input_path>:11:2 Error: Do not use the `stable` keyword. It's implicit when using persistent actors.
+backend/main.mo:11:2 Error: Do not use the `stable` keyword. It's implicit when using persistent actors.
 Found in:
 11   stable let stableLet = 42;
 
-<input_path>:15:15 Error: Do not use `shared(msg)`. Use `shared({ caller })` instead.
+backend/main.mo:15:15 Error: Do not use `shared(msg)`. Use `shared({ caller })` instead.
 Found in:
 15   public shared(msg) func sharedCaller() {};
 
-<input_path>:16:16 Error: Do not use `shared(msg)`. Use `shared({ caller })` instead.
+backend/main.mo:16:16 Error: Do not use `shared(msg)`. Use `shared({ caller })` instead.
 Found in:
 16   public shared msg func sharedCallerVar() {};
 
-<input_path>:21:2 Error: Only use `transient` for OrderedMap.Make, OrderedSet.Make, and Random.Finite
+backend/main.mo:21:2 Error: Only use `transient` for OrderedMap.Make, OrderedSet.Make, and Random.Finite
 Found in:
 21   transient let transientMap = OrderedMap.Make.Well<Nat>(Nat.compare);
 
-<input_path>:23:2 Error: Use `x += 1` instead of reassigning the variable.
+backend/main.mo:23:2 Error: Use `x += 1` instead of reassigning the variable.
 Found in:
 23   x := 1 + x;
 
-<input_path>:24:2 Error: Use `x += 2` instead of reassigning the variable.
+backend/main.mo:24:2 Error: Use `x += 2` instead of reassigning the variable.
 Found in:
 24   x := x + 2;
 
-<input_path>:26:2 Error: Use `x -= 1` instead of reassigning the variable
+backend/main.mo:26:2 Error: Use `x -= 1` instead of reassigning the variable
 Found in:
 26   x := x - 1;
 
-<input_path>:29:2 Error: Use `x *= 1` instead of reassigning the variable.
+backend/main.mo:29:2 Error: Use `x *= 1` instead of reassigning the variable.
 Found in:
 29   x := x * 1;
 
-<input_path>:30:2 Error: Use `x *= 1` instead of reassigning the variable.
+backend/main.mo:30:2 Error: Use `x *= 1` instead of reassigning the variable.
 Found in:
 30   x := 1 * x;
 
-<input_path>:32:2 Error: Use `x /= 1` instead of reassigning the variable
+backend/main.mo:32:2 Error: Use `x /= 1` instead of reassigning the variable
 Found in:
 32   x := x / 1;
 
-<input_path>:35:2 Error: Use `x #= "1"` instead of reassigning the variable
+backend/main.mo:35:2 Error: Use `x #= "1"` instead of reassigning the variable
 Found in:
 35   x := x # "1";
 
-<input_path>:38:12 Warning: Use field punning to to avoid repetition: Replace `{ field = field }` with `{ field }`
+backend/main.mo:38:12 Warning: Use field punning to to avoid repetition: Replace `{ field = field }` with `{ field }`
 Found in:
 38   let _ = { field = field };
 
-<input_path>:40:10 Error: Don't switch on boolean values, use if instead
+backend/main.mo:40:10 Error: Don't switch on boolean values, use if instead
 Found in:
 40   let _ = switch _ {
 41     case (false) {};
 42     case (true) {};
 43   };
 
-<input_path>:44:10 Error: Don't switch on boolean values, use if instead
+backend/main.mo:44:10 Error: Don't switch on boolean values, use if instead
 Found in:
 44   let _ = switch _ {
 45     case true {};
 46     case false {};
 47   };
 
-<input_path>:54:46 Error: Only return primitive types from publicly exposed endpoints
+backend/main.mo:54:46 Error: Only return primitive types from publicly exposed endpoints
 Found in:
 54   public func listReturningFunction() : async List<Text> {
 
-<input_path>:57:45 Error: Only return primitive types from publicly exposed endpoints
+backend/main.mo:57:45 Error: Only return primitive types from publicly exposed endpoints
 Found in:
 57   public func setReturningFunction() : async Set.Set<Text> {
 
-<input_path>:60:45 Error: Only return primitive types from publicly exposed endpoints
+backend/main.mo:60:45 Error: Only return primitive types from publicly exposed endpoints
 Found in:
 60   public func mapReturningFunction() : async Map.Map<Text, Nat> {
 
-<input_path>:73:4 Warning: unneeded return statement. You can remove the `return`
+backend/main.mo:73:4 Warning: unneeded return statement. You can remove the `return`
 Found in:
 73     return 10
 
-<input_path>:75:26 Warning: unneeded return statement. You can remove the `return`
+backend/main.mo:75:26 Warning: unneeded return statement. You can remove the `return`
 Found in:
 75   func unneededReturn() = return 10;
 
-<input_path>:79:6 Warning: unneeded return statement. You can remove the `return`
+backend/main.mo:79:6 Warning: unneeded return statement. You can remove the `return`
 Found in:
 79       return 4;
 
-<input_path>:86:14 Warning: unneeded return statement. You can remove the `return`
+backend/main.mo:86:14 Warning: unneeded return statement. You can remove the `return`
 Found in:
 86     if (true) return 4
 
-<input_path>:95:13 Warning: unneeded return statement. You can remove the `return`
+backend/main.mo:95:13 Warning: unneeded return statement. You can remove the `return`
 Found in:
 95       case 1 return 40;
 
-<input_path>:96:15 Warning: unneeded return statement. You can remove the `return`
+backend/main.mo:96:15 Warning: unneeded return statement. You can remove the `return`
 Found in:
 96       case 2 { return 40; };
 
-<input_path>:100:7 Error: Types should be capitalized and use CamelCase.
+backend/main.mo:100:7 Error: Types should be capitalized and use CamelCase.
 Found in:
 100   type lowerCase = Nat;
 
-<input_path>:101:7 Error: Types should be capitalized and use CamelCase.
+backend/main.mo:101:7 Error: Types should be capitalized and use CamelCase.
 Found in:
 101   type Snake_case = Nat;
 
-<input_path>:102:17 Error: Types should be capitalized and use CamelCase.
+backend/main.mo:102:17 Error: Types should be capitalized and use CamelCase.
 Found in:
 102   type CamelCase<lowerCase, Snake_case> = Nat;
 
-<input_path>:102:28 Error: Types should be capitalized and use CamelCase.
+backend/main.mo:102:28 Error: Types should be capitalized and use CamelCase.
 Found in:
 102   type CamelCase<lowerCase, Snake_case> = Nat;
 
-<input_path>:105:7 Error: Functions should start lower case and use camelCase.
+backend/main.mo:105:7 Error: Functions should start lower case and use camelCase.
 Found in:
 105   func UpperCase() {};
 
-<input_path>:106:7 Error: Functions should start lower case and use camelCase.
+backend/main.mo:106:7 Error: Functions should start lower case and use camelCase.
 Found in:
 106   func snake_case() {};
 
-<input_path>:108:8 Error: Types should be capitalized and use CamelCase.
+backend/main.mo:108:8 Error: Types should be capitalized and use CamelCase.
 Found in:
 108   class lowerCase() {};
 
-<input_path>:109:8 Error: Types should be capitalized and use CamelCase.
+backend/main.mo:109:8 Error: Types should be capitalized and use CamelCase.
 Found in:
 109   class Snake_Cased_ish() {};
 
-<input_path>:110:18 Error: Types should be capitalized and use CamelCase.
+backend/main.mo:110:18 Error: Types should be capitalized and use CamelCase.
 Found in:
 110   class CamelCase<lowerCase, Snake_case>() {};
 
-<input_path>:110:29 Error: Types should be capitalized and use CamelCase.
+backend/main.mo:110:29 Error: Types should be capitalized and use CamelCase.
 Found in:
 110   class CamelCase<lowerCase, Snake_case>() {};
 
-<input_path>:122:28 Error: Nesting depth exceeded maximum allowed depth of 9
+backend/main.mo:122:28 Error: Nesting depth exceeded maximum allowed depth of 9
 Found in:
 122                   if (true) {
 123                     0

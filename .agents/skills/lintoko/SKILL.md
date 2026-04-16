@@ -103,8 +103,42 @@ Match any of several node structures with `[...]`. A capture after `]` captures 
 | `#match?` regex | `(#match? @import "pure")` |
 | `#not-match?` | `(#not-match? @ident "^[a-z_][a-zA-Z0-9]*$")` |
 | `#any-of?` set | `(#any-of? @type "List" "Set" "Map")` |
+| `#match-file?` regex | `(#match-file? "^backend/types/")` |
+| `#not-match-file?` regex | `(#not-match-file? "^backend/main\.mo$")` |
 
 Predicates go inside the outermost `()` of the pattern. Multiple `#not-eq?` predicates create an **allowlist** — everything is flagged except listed values.
+
+### Path predicates (`#match-file?` / `#not-match-file?`)
+
+Lintoko-specific custom predicates that match the **path of the file currently being linted** against a regex. Unlike `#match?`, these take no capture argument — they only depend on the filepath, not on any matched node.
+
+Two use cases:
+
+1. **Scope a rule to a directory**: `(#match-file? "^backend/lib/")` makes the rule only fire for files under `backend/lib/`.
+2. **Enforce directory structure**: match on `source_file` and use `#not-match-file?` to allowlist permitted paths; anything outside fires an error. See `example-rules/allowed-directories.toml`.
+
+**Path contract** — the predicate receives the exact path string lintoko was handed, which is the same path shown in diagnostics. In practice, this is **project-relative** because:
+
+- `mops lint` invokes lintoko with CWD at the project root.
+- CLI globs expand to paths in the same form as the input pattern.
+
+**Authoring conventions:**
+
+- Write regexes against **project-relative, forward-slash paths** (e.g. `^backend/types/`).
+- Anchored `^backend/` means "starting at project root"; unanchored `backend/types/` matches the substring anywhere in the path — usually not what you want.
+- Path-dependent rules assume lintoko is invoked from the project root. Running from elsewhere (or with absolute paths) is unsupported for those rules.
+- Windows backslash paths are not normalized.
+
+**ANDing multiple predicates** — predicates on the same pattern are conjoined; the match only fires when all pass. This makes allow-lists readable as one predicate per allowed path:
+
+```
+((source_file) @error
+ (#not-match-file? "^backend/types/")
+ (#not-match-file? "^backend/lib/")
+ (#not-match-file? "^backend/main\.mo$"))
+```
+
+**Quoting** — regex escapes like `\.` are clearer in `'''` triple-single-quoted TOML strings than in `"""` (which requires `\\.`).
 
 ### Multiple patterns
 
