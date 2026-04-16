@@ -31,6 +31,16 @@ struct Args {
     /// When passing a file path, will _only_ use the rule in that file
     #[arg(short, long, value_name = "DIRECTORY")]
     rules: Vec<PathBuf>,
+
+    /// Override severity for all rules
+    #[arg(short, long, value_enum)]
+    severity: Option<CliSeverity>,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+enum CliSeverity {
+    Warning,
+    Error,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -89,6 +99,10 @@ fn main() -> Result<()> {
             OutputFormat::Pretty => lintoko::OutputFormat::Pretty,
             OutputFormat::Text => lintoko::OutputFormat::Text,
         },
+        severity_override: args.severity.map(|s| match s {
+            CliSeverity::Warning => lintoko::RuleSeverity::Warning,
+            CliSeverity::Error => lintoko::RuleSeverity::Error,
+        }),
     };
 
     let inputs = if args.inputs.is_empty() {
@@ -114,6 +128,7 @@ fn main() -> Result<()> {
     }
 
     let mut error_count = 0;
+    let mut warning_count = 0;
     for input in all_files {
         debug!("Linting file: {}", input.display());
 
@@ -128,6 +143,7 @@ fn main() -> Result<()> {
             std::io::stderr(),
         )?;
         error_count += res.error_count;
+        warning_count += res.warning_count;
         if let Some(fixed_file) = res.fixed_file {
             debug!("Writing fixed file: {}", input.display());
             fs::write(&input, fixed_file)?
@@ -135,7 +151,14 @@ fn main() -> Result<()> {
     }
 
     if error_count > 0 {
-        bail!("Found {error_count} errors")
+        if warning_count > 0 {
+            bail!("Found {error_count} errors and {warning_count} warnings")
+        } else {
+            bail!("Found {error_count} errors")
+        }
+    } else if warning_count > 0 {
+        eprintln!("Found {warning_count} warnings");
+        Ok(())
     } else {
         Ok(())
     }

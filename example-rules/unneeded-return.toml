@@ -1,4 +1,5 @@
 name = "unneeded-return"
+severity = "warning"
 description = "unneeded return statement. You can remove the `return`"
 # This is a bit simplistic in that it won't spot nested ifs or switches, but it covers the first 80%.
 # Doing this fully would require implementing recursive queries

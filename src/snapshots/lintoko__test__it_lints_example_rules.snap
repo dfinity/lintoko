@@ -1,6 +1,5 @@
 ---
 source: src/lib.rs
-assertion_line: 290
 expression: lint_output
 ---
   × [ERROR]: no-result
@@ -146,7 +145,7 @@ expression: lint_output
  36 │   x := "1" # x;
     ╰────
 
-  × [ERROR]: pun-fields
+  ⚠ [WARNING]: pun-fields
     ╭─[<input_path>:38:13]
  37 │ 
  38 │   let _ = { field = field };
@@ -204,7 +203,7 @@ expression: lint_output
  61 │     null
     ╰────
 
-  × [ERROR]: unneeded-return
+  ⚠ [WARNING]: unneeded-return
     ╭─[<input_path>:73:5]
  72 │   func unneededReturn() {
  73 │     return 10
@@ -213,7 +212,7 @@ expression: lint_output
  74 │   };
     ╰────
 
-  × [ERROR]: unneeded-return
+  ⚠ [WARNING]: unneeded-return
     ╭─[<input_path>:75:27]
  74 │   };
  75 │   func unneededReturn() = return 10;
@@ -222,7 +221,7 @@ expression: lint_output
  76 │ 
     ╰────
 
-  × [ERROR]: unneeded-return
+  ⚠ [WARNING]: unneeded-return
     ╭─[<input_path>:79:7]
  78 │     if (true) {
  79 │       return 4;
@@ -231,7 +230,7 @@ expression: lint_output
  80 │     } else {
     ╰────
 
-  × [ERROR]: unneeded-return
+  ⚠ [WARNING]: unneeded-return
     ╭─[<input_path>:86:15]
  85 │   func unneededReturn() {
  86 │     if (true) return 4
@@ -240,7 +239,7 @@ expression: lint_output
  87 │     else {
     ╰────
 
-  × [ERROR]: unneeded-return
+  ⚠ [WARNING]: unneeded-return
     ╭─[<input_path>:95:14]
  94 │     switch (true) {
  95 │       case 1 return 40;
@@ -249,7 +248,7 @@ expression: lint_output
  96 │       case 2 { return 40; };
     ╰────
 
-  × [ERROR]: unneeded-return
+  ⚠ [WARNING]: unneeded-return
     ╭─[<input_path>:96:16]
  95 │       case 1 return 40;
  96 │       case 2 { return 40; };

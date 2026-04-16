@@ -1,6 +1,5 @@
 ---
 source: src/lib.rs
-assertion_line: 312
 expression: lint_output
 ---
 <input_path>:1:0 Error: Do not use the Result pattern. Use Runtime.trap() instead.
@@ -67,7 +66,7 @@ Found in:
 Found in:
 35   x := x # "1";
 
-<input_path>:38:12 Error: Use field punning to to avoid repetition: Replace `{ field = field }` with `{ field }`
+<input_path>:38:12 Warning: Use field punning to to avoid repetition: Replace `{ field = field }` with `{ field }`
 Found in:
 38   let _ = { field = field };
 
@@ -97,27 +96,27 @@ Found in:
 Found in:
 60   public func mapReturningFunction() : async Map.Map<Text, Nat> {
 
-<input_path>:73:4 Error: unneeded return statement. You can remove the `return`
+<input_path>:73:4 Warning: unneeded return statement. You can remove the `return`
 Found in:
 73     return 10
 
-<input_path>:75:26 Error: unneeded return statement. You can remove the `return`
+<input_path>:75:26 Warning: unneeded return statement. You can remove the `return`
 Found in:
 75   func unneededReturn() = return 10;
 
-<input_path>:79:6 Error: unneeded return statement. You can remove the `return`
+<input_path>:79:6 Warning: unneeded return statement. You can remove the `return`
 Found in:
 79       return 4;
 
-<input_path>:86:14 Error: unneeded return statement. You can remove the `return`
+<input_path>:86:14 Warning: unneeded return statement. You can remove the `return`
 Found in:
 86     if (true) return 4
 
-<input_path>:95:13 Error: unneeded return statement. You can remove the `return`
+<input_path>:95:13 Warning: unneeded return statement. You can remove the `return`
 Found in:
 95       case 1 return 40;
 
-<input_path>:96:15 Error: unneeded return statement. You can remove the `return`
+<input_path>:96:15 Warning: unneeded return statement. You can remove the `return`
 Found in:
 96       case 2 { return 40; };
 

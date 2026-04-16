@@ -1,4 +1,5 @@
 name = "pun-fields"
+severity = "warning"
 description = "Use field punning to to avoid repetition: Replace `{ @field = @field }` with `{ @field }`"
 query = """
 ((exp_field
