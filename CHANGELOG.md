@@ -1,4 +1,6 @@
 # Unreleased
+- feat: add per-rule `severity` field (`"warning"` or `"error"`, defaults to `"error"`)
+- feat: add `--severity` CLI flag to override severity for all rules
 
 # 0.9.0
 - feat: allows matching/linting on nesting depth [#31](https://github.com/caffeinelabs/lintoko/pull/31)

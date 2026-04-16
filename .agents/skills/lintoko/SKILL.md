@@ -13,6 +13,7 @@ Repo: [github.com/caffeinelabs/lintoko](https://github.com/caffeinelabs/lintoko)
 
 ```toml
 name = "rule-name"
+severity = "warning"  # optional, defaults to "error"
 description = "Human-readable message. Can reference captures like @var."
 query = """
 (tree_sitter_query) @error
@@ -25,7 +26,8 @@ fix = "@captured_replacement"  # optional
 | Field | Required | Description |
 |-------|----------|-------------|
 | `name` | yes | Kebab-case rule identifier (used in error output) |
-| `description` | yes | Error message shown to the user. Supports `@capture` templating — capture names are replaced with matched source text at report time |
+| `severity` | no | `"error"` (default) or `"warning"`. Warnings are reported but don't cause a non-zero exit code |
+| `description` | yes | Message shown to the user. Supports `@capture` templating — capture names are replaced with matched source text at report time |
 | `query` | yes | Tree-sitter query. Must contain at least one `@error` capture |
 | `fix` | no | Replacement template using `@capture` references. When `--fix` is passed, the `@error` range is replaced with this expanded string |
 
@@ -222,6 +224,7 @@ lintoko -r <rules-dir> [files/dirs/globs]   # lint files with a rule directory
 lintoko -r rules --fix                      # apply auto-fixes
 lintoko -r rules -f text                    # text output (vs pretty)
 lintoko -r my-rules -r more-rules src/      # multiple rule dirs
+lintoko -r rules -s warning src/            # treat all rules as warnings
 ```
 
 When no input files are specified, lintoko lints all `**/*.mo` files under the current directory.

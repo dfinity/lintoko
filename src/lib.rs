@@ -16,10 +16,19 @@ pub enum OutputFormat {
     Text,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RuleSeverity {
+    Warning,
+    #[default]
+    Error,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct Config {
     pub format: OutputFormat,
     pub fix: bool,
+    pub severity_override: Option<RuleSeverity>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -28,6 +37,8 @@ pub struct Rule {
     description: String,
     query: String,
     fix: Option<String>,
+    #[serde(default)]
+    severity: RuleSeverity,
 }
 
 #[derive(Debug, Clone)]
@@ -36,6 +47,7 @@ struct RawDiagnostic {
     description: String,
     range: Range,
     fix: Option<String>,
+    severity: RuleSeverity,
 }
 
 pub fn load_rule_from_file(path: &Path) -> Result<Rule> {
@@ -136,6 +148,7 @@ fn apply_rule(rule: &Rule, tree: Node, input: &str) -> Result<Vec<RawDiagnostic>
             description,
             range,
             fix,
+            severity: rule.severity,
         };
         diagnostics.push(diagnostic);
     }
@@ -144,8 +157,12 @@ fn apply_rule(rule: &Rule, tree: Node, input: &str) -> Result<Vec<RawDiagnostic>
 
 fn print_pretty_diagnostic(path: &str, source_code: &str, diagnostic: &RawDiagnostic) -> String {
     let source_code = NamedSource::new(path, source_code.to_string());
+    let (miette_severity, label) = match diagnostic.severity {
+        RuleSeverity::Warning => (Severity::Warning, "[WARNING]"),
+        RuleSeverity::Error => (Severity::Error, "[ERROR]"),
+    };
     let report = miette!(
-        severity = Severity::Error,
+        severity = miette_severity,
         labels = vec![LabeledSpan::new_primary_with_span(
             Some(diagnostic.description.clone()),
             (
@@ -153,7 +170,7 @@ fn print_pretty_diagnostic(path: &str, source_code: &str, diagnostic: &RawDiagno
                 diagnostic.range.end_byte - diagnostic.range.start_byte
             )
         )],
-        "[ERROR]: {}",
+        "{label}: {}",
         diagnostic.rule
     )
     .with_source_code(source_code);
@@ -176,9 +193,13 @@ fn print_text_diagnostic(path: &str, source_code: &str, diagnostic: &RawDiagnost
         snippet += &format!("{padding}{l} {line}\n");
     }
 
+    let severity_label = match diagnostic.severity {
+        RuleSeverity::Warning => "Warning",
+        RuleSeverity::Error => "Error",
+    };
     let start = format!("{start_line}:{}", diagnostic.range.start_point.column);
     format!(
-        "{path}:{start} Error: {description}\nFound in:\n{snippet}",
+        "{path}:{start} {severity_label}: {description}\nFound in:\n{snippet}",
         description = diagnostic.description
     )
 }
@@ -186,6 +207,7 @@ fn print_text_diagnostic(path: &str, source_code: &str, diagnostic: &RawDiagnost
 #[derive(Debug)]
 pub struct LintResult {
     pub error_count: usize,
+    pub warning_count: usize,
     pub fixed_file: Option<String>,
 }
 
@@ -204,6 +226,11 @@ pub fn lint_file(
     let mut diagnostics = Vec::new();
     for rule in rules {
         diagnostics.extend(apply_rule(rule, tree.root_node(), input)?);
+    }
+    if let Some(severity) = config.severity_override {
+        for d in &mut diagnostics {
+            d.severity = severity;
+        }
     }
     diagnostics.sort_by_key(|d| d.range.start_byte);
     for diagnostic in &diagnostics {
@@ -247,8 +274,17 @@ pub fn lint_file(
         )?
     }
 
+    let (error_count, warning_count) =
+        diagnostics
+            .iter()
+            .fold((0, 0), |(e, w), d| match d.severity {
+                RuleSeverity::Error => (e + 1, w),
+                RuleSeverity::Warning => (e, w + 1),
+            });
+
     Ok(LintResult {
-        error_count: diagnostics.len(),
+        error_count,
+        warning_count,
         fixed_file,
     })
 }
@@ -269,6 +305,7 @@ mod test {
         )
         .unwrap();
         assert_eq!(res.error_count, 0);
+        assert_eq!(res.warning_count, 0);
         assert_eq!(str::from_utf8(&out).unwrap(), "");
     }
 
@@ -302,6 +339,7 @@ mod test {
             &Config {
                 fix: false,
                 format: OutputFormat::Text,
+                ..Config::default()
             },
             "<input_path>",
             include_str!("../test-data.mo"),
@@ -324,6 +362,7 @@ mod test {
             &Config {
                 fix: true,
                 format: OutputFormat::Text,
+                ..Config::default()
             },
             "<input_path>",
             "{ x = x }",
@@ -332,5 +371,62 @@ mod test {
         )
         .unwrap();
         assert_eq!(res.fixed_file.unwrap(), "{ x }".to_string())
+    }
+
+    #[test]
+    fn warning_severity_does_not_count_as_error() {
+        let mut out: Vec<u8> = vec![];
+        let rule = load_rule_from_file(Path::new("example-rules/pun-fields.toml")).unwrap();
+        assert_eq!(rule.severity, RuleSeverity::Warning);
+        let res = lint_file(
+            &Config::default(),
+            "<input_path>",
+            "{ x = x }",
+            &[rule],
+            &mut out,
+        )
+        .unwrap();
+        assert_eq!(res.error_count, 0);
+        assert_eq!(res.warning_count, 1);
+    }
+
+    #[test]
+    fn severity_override_promotes_warnings_to_errors() {
+        let mut out: Vec<u8> = vec![];
+        let rule = load_rule_from_file(Path::new("example-rules/pun-fields.toml")).unwrap();
+        assert_eq!(rule.severity, RuleSeverity::Warning);
+        let res = lint_file(
+            &Config {
+                severity_override: Some(RuleSeverity::Error),
+                ..Config::default()
+            },
+            "<input_path>",
+            "{ x = x }",
+            &[rule],
+            &mut out,
+        )
+        .unwrap();
+        assert_eq!(res.error_count, 1);
+        assert_eq!(res.warning_count, 0);
+    }
+
+    #[test]
+    fn severity_override_demotes_errors_to_warnings() {
+        let mut out: Vec<u8> = vec![];
+        let rule = load_rule_from_file(Path::new("example-rules/no-let-else.toml")).unwrap();
+        assert_eq!(rule.severity, RuleSeverity::Error);
+        let res = lint_file(
+            &Config {
+                severity_override: Some(RuleSeverity::Warning),
+                ..Config::default()
+            },
+            "<input_path>",
+            "let ?x = foo() else { return }",
+            &[rule],
+            &mut out,
+        )
+        .unwrap();
+        assert_eq!(res.error_count, 0);
+        assert_eq!(res.warning_count, 1);
     }
 }
