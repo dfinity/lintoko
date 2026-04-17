@@ -91,20 +91,11 @@ fn eval_depth_predicate<'q>(
     Ok(depth_fn(node, types) >= threshold)
 }
 
-fn eval_file_predicate<'q>(
-    pred: &'q QueryPredicate,
-    file_path: &str,
-    regex_cache: &mut HashMap<&'q str, Regex>,
-) -> Result<bool> {
+// NOTE: regex is recompiled per match. A `CompiledRule` owning compiled queries + cached regexes across files would be the proper fix; skipped for now (perf not measured).
+fn eval_file_predicate(pred: &QueryPredicate, file_path: &str) -> Result<bool> {
     let pattern = resolve_string_arg(&pred.args, 0)?;
-    let regex = match regex_cache.entry(pattern) {
-        Entry::Occupied(e) => e.into_mut(),
-        Entry::Vacant(e) => {
-            let compiled = Regex::new(pattern)
-                .with_context(|| format!("invalid regex pattern {pattern:?}"))?;
-            e.insert(compiled)
-        }
-    };
+    let regex = Regex::new(pattern)
+        .with_context(|| format!("invalid regex pattern {pattern:?}"))?;
     Ok(regex.is_match(file_path))
 }
 
@@ -113,7 +104,6 @@ fn evaluate_predicates<'q>(
     captures: &[QueryCapture<'_>],
     file_path: &str,
     types_cache: &mut HashMap<&'q str, HashSet<&'q str>>,
-    regex_cache: &mut HashMap<&'q str, Regex>,
 ) -> Result<bool> {
     for pred in predicates {
         let op = pred.operator.as_ref();
@@ -127,9 +117,9 @@ fn evaluate_predicates<'q>(
                 eval_depth_predicate(pred, captures, types_cache, depth_fn)
                     .with_context(|| format!("in #{op}"))?
             }
-            "match-file?" => eval_file_predicate(pred, file_path, regex_cache)
+            "match-file?" => eval_file_predicate(pred, file_path)
                 .with_context(|| format!("in #{op}"))?,
-            "not-match-file?" => !eval_file_predicate(pred, file_path, regex_cache)
+            "not-match-file?" => !eval_file_predicate(pred, file_path)
                 .with_context(|| format!("in #{op}"))?,
             unknown => bail!("Unknown custom predicate: #{unknown}"),
         };
@@ -152,7 +142,6 @@ pub struct MatchEvaluator<'q, 'p> {
     filter_idx: Option<u32>,
     file_path: &'p str,
     types_cache: HashMap<&'q str, HashSet<&'q str>>,
-    regex_cache: HashMap<&'q str, Regex>,
 }
 
 impl<'q, 'p> MatchEvaluator<'q, 'p> {
@@ -162,7 +151,6 @@ impl<'q, 'p> MatchEvaluator<'q, 'p> {
             filter_idx: query.capture_index_for_name("filter"),
             file_path,
             types_cache: HashMap::new(),
-            regex_cache: HashMap::new(),
             query,
         }
     }
@@ -175,13 +163,7 @@ impl<'q, 'p> MatchEvaluator<'q, 'p> {
         }
         let predicates = self.query.general_predicates(m.pattern_index);
         if !predicates.is_empty()
-            && !evaluate_predicates(
-                predicates,
-                m.captures,
-                self.file_path,
-                &mut self.types_cache,
-                &mut self.regex_cache,
-            )?
+            && !evaluate_predicates(predicates, m.captures, self.file_path, &mut self.types_cache)?
         {
             return Ok(true);
         }
