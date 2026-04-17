@@ -110,26 +110,20 @@ Predicates go inside the outermost `()` of the pattern. Multiple `#not-eq?` pred
 
 ### Path predicates (`#match-file?` / `#not-match-file?`)
 
-Lintoko-specific custom predicates that match the **path of the file currently being linted** against a regex. Unlike `#match?`, these take no capture argument — they only depend on the filepath, not on any matched node.
+Match the **file path currently being linted** against a regex. Take no capture argument — only the path matters. Two use cases:
 
-Two use cases:
+1. **Scope a rule to a directory**: `(#match-file? "^backend/lib/")` makes the rule fire only for files under `backend/lib/`.
+2. **Enforce directory structure**: match on `source_file` with stacked `#not-match-file?` predicates to allowlist permitted paths. See `example-rules/allowed-directories.toml`.
 
-1. **Scope a rule to a directory**: `(#match-file? "^backend/lib/")` makes the rule only fire for files under `backend/lib/`.
-2. **Enforce directory structure**: match on `source_file` and use `#not-match-file?` to allowlist permitted paths; anything outside fires an error. See `example-rules/allowed-directories.toml`.
+**Path contract** — the predicate receives the raw path string lintoko was handed, same as shown in diagnostics. Typically project-relative because `mops lint` runs from the project root.
 
-**Path contract** — the predicate receives the exact path string lintoko was handed, which is the same path shown in diagnostics. In practice, this is **project-relative** because:
+**Authoring:**
 
-- `mops lint` invokes lintoko with CWD at the project root.
-- CLI globs expand to paths in the same form as the input pattern.
+- Use project-relative, forward-slash paths with `^` anchors (`^backend/types/`).
+- Unanchored `backend/types/` matches the substring anywhere — usually wrong for layout rules.
+- Path-dependent rules assume CWD = project root.
 
-**Authoring conventions:**
-
-- Write regexes against **project-relative, forward-slash paths** (e.g. `^backend/types/`).
-- Anchored `^backend/` means "starting at project root"; unanchored `backend/types/` matches the substring anywhere in the path — usually not what you want.
-- Path-dependent rules assume lintoko is invoked from the project root. Running from elsewhere (or with absolute paths) is unsupported for those rules.
-- Windows backslash paths are not normalized.
-
-**ANDing multiple predicates** — predicates on the same pattern are conjoined; the match only fires when all pass. This makes allow-lists readable as one predicate per allowed path:
+**Multiple predicates AND** — readable as one predicate per allowed path:
 
 ```
 ((source_file) @error
@@ -137,8 +131,6 @@ Two use cases:
  (#not-match-file? "^backend/lib/")
  (#not-match-file? "^backend/main\.mo$"))
 ```
-
-**Quoting** — regex escapes like `\.` are clearer in `'''` triple-single-quoted TOML strings than in `"""` (which requires `\\.`).
 
 ### Multiple patterns
 
