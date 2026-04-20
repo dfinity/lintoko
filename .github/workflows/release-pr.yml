@@ -1,0 +1,102 @@
+name: release-pr
+
+# Triggered on PRs labeled `release`. Validates PR title, Cargo.toml version,
+# and CHANGELOG.md on every update so reviewers see issues immediately. On
+# merge, pushes a `vX.Y.Z` tag using a GitHub App token, which kicks off
+# `release.yml` (cargo-dist) to build and publish the GitHub Release.
+#
+# The tag must be pushed by something other than the default `GITHUB_TOKEN`,
+# because GitHub does not fan out workflow events caused by `GITHUB_TOKEN`.
+# We use an org-wide GitHub App (`GENERIC_CI_RW_APP_*`) -- App-generated
+# tokens DO trigger downstream workflows.
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, labeled, closed]
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.labels.*.name, 'release')
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from PR title
+        id: get_version
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+          VERSION=$(echo "$PR_TITLE" | sed -nE 's/^release: ([0-9]+\.[0-9]+\.[0-9]+)$/\1/p')
+          if [[ -z "$VERSION" ]]; then
+            echo "::error::PR title must be 'release: X.Y.Z' (got: '$PR_TITLE')"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Detected release version: $VERSION"
+
+      - name: Validate Cargo.toml version matches
+        env:
+          VERSION: ${{ steps.get_version.outputs.version }}
+        run: |
+          set -euo pipefail
+          CARGO_VERSION=$(awk -F'"' '/^version = / { print $2; exit }' Cargo.toml)
+          if [[ "$CARGO_VERSION" != "$VERSION" ]]; then
+            echo "::error::Cargo.toml version ($CARGO_VERSION) does not match PR title version ($VERSION)"
+            exit 1
+          fi
+          echo "Cargo.toml version matches: $CARGO_VERSION"
+
+      - name: Validate CHANGELOG entry exists
+        env:
+          VERSION: ${{ steps.get_version.outputs.version }}
+        run: |
+          set -euo pipefail
+          ESCAPED=$(echo "$VERSION" | sed 's/\./\\./g')
+          NOTES=$(awk "/^# ${ESCAPED}\$/{found=1; next} found && /^# /{exit} found" CHANGELOG.md)
+          if [[ -z "$NOTES" ]]; then
+            echo "::error::No '# ${VERSION}' section found in CHANGELOG.md"
+            exit 1
+          fi
+          echo "CHANGELOG entry found for ${VERSION}."
+
+  tag-and-release:
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions: {} # all privileged ops use the GitHub App token, not GITHUB_TOKEN
+    # Only fire on the actual merge event (not when 'release' label is added
+    # retroactively to an already-merged PR).
+    if: github.event.action == 'closed' && github.event.pull_request.merged == true
+    steps:
+      - name: Create GitHub App Token
+        uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          app-id: ${{ vars.GENERIC_CI_RW_APP_ID }}
+          private-key: ${{ secrets.GENERIC_CI_RW_APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@v4
+        with:
+          # Check out the merge commit so the tag points at the right SHA
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Configure git user
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Push tag to trigger release pipeline
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+          git tag "v${VERSION}" -m "Release v${VERSION}"
+          git push origin "v${VERSION}"
