@@ -1,0 +1,69 @@
+name: Tag Release
+
+# When a release PR is merged into `main`, the version in Cargo.toml changes.
+# This workflow detects that and pushes a matching `vX.Y.Z` tag, which then
+# triggers `release.yml` (the cargo-dist workflow) to build and publish binaries.
+#
+# IMPORTANT: For the pushed tag to actually trigger `release.yml`, the push must
+# come from a Personal Access Token (PAT), not the default `GITHUB_TOKEN`.
+# GitHub intentionally suppresses workflow events caused by `GITHUB_TOKEN`.
+#
+# Configure a repo secret named `RELEASE_TAG_PAT` (fine-grained PAT with
+# `contents: write` on this repo). If the secret is absent the workflow stops
+# after detecting the bump and tells you to push the tag manually from your
+# machine (which will trigger `release.yml`).
+
+on:
+  push:
+    branches: [main]
+    paths: [Cargo.toml]
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          token: ${{ secrets.RELEASE_TAG_PAT || secrets.GITHUB_TOKEN }}
+
+      - name: Detect version bump and push tag
+        env:
+          RELEASE_TAG_PAT: ${{ secrets.RELEASE_TAG_PAT }}
+        run: |
+          set -euo pipefail
+
+          new_version=$(awk -F'"' '/^version = / { print $2; exit }' Cargo.toml)
+          old_version=$(git show HEAD~1:Cargo.toml | awk -F'"' '/^version = / { print $2; exit }' || echo "")
+
+          if [ -z "$new_version" ]; then
+            echo "Could not parse version from Cargo.toml" >&2
+            exit 1
+          fi
+
+          if [ "$new_version" = "$old_version" ]; then
+            echo "Version unchanged ($new_version); nothing to tag."
+            exit 0
+          fi
+
+          tag="v${new_version}"
+
+          if git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; then
+            echo "Tag ${tag} already exists on origin; nothing to do."
+            exit 0
+          fi
+
+          echo "Version bumped: ${old_version:-<none>} -> ${new_version}; preparing tag ${tag}"
+
+          if [ -z "${RELEASE_TAG_PAT}" ]; then
+            echo "::warning::RELEASE_TAG_PAT secret not set. Skipping auto-tag because a tag pushed with GITHUB_TOKEN would NOT trigger release.yml. Push manually: git tag ${tag} ${{ github.sha }} && git push origin ${tag}"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${tag}" -m "Release ${tag}"
+          git push origin "${tag}"

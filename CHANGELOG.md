@@ -1,4 +1,6 @@
 # Unreleased
+
+# 0.10.0
 - feat: add per-rule `severity` field (`"warning"` or `"error"`, defaults to `"error"`)
 - feat: add `--severity` CLI flag to override severity for all rules
 - feat: add per-rule `includes` / `excludes` glob fields for scoping rules to file paths (with `allowed-directories` and `types-only` example rules)
