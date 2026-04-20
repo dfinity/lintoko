@@ -4,7 +4,7 @@ use anyhow::{Context, Result, anyhow};
 use glob::Pattern;
 use miette::{LabeledSpan, NamedSource, Severity, miette};
 use regex::Regex;
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use std::collections::HashSet;
 use std::{fs, io::Write, path::Path};
 use tracing::debug;
@@ -32,67 +32,34 @@ pub struct Config {
     pub severity_override: Option<RuleSeverity>,
 }
 
-/// Raw TOML shape for a rule before glob compilation. Kept separate from [`Rule`] so the
-/// public type can carry compiled `glob::Pattern` values directly, eliminating both
-/// per-call recompilation and any "validated at load time" panics.
-#[derive(Debug, Default, Deserialize)]
-struct RawRule {
-    name: String,
-    description: String,
-    query: String,
-    fix: Option<String>,
-    #[serde(default)]
-    severity: RuleSeverity,
-    #[serde(default)]
-    includes: Vec<String>,
-    #[serde(default)]
-    excludes: Vec<String>,
-}
-
 #[derive(Debug, Deserialize)]
-#[serde(try_from = "RawRule")]
 pub struct Rule {
     name: String,
     description: String,
     query: String,
     fix: Option<String>,
+    #[serde(default)]
     severity: RuleSeverity,
     /// When non-empty, the rule only runs on files whose path matches at least one pattern.
     /// Patterns are anchored to the full path string lintoko was handed (typically
     /// project-relative); use `**` to match zero or more path segments.
+    #[serde(default, deserialize_with = "deserialize_globs")]
     includes: Vec<Pattern>,
     /// When a path matches any pattern here, the rule is skipped. Same matching
     /// semantics as [`Rule::includes`]. Combined with `includes`, the rule runs
     /// when the path is included AND not excluded.
+    #[serde(default, deserialize_with = "deserialize_globs")]
     excludes: Vec<Pattern>,
 }
 
-impl TryFrom<RawRule> for Rule {
-    type Error = anyhow::Error;
-
-    // NOTE: serde flattens this Error to a de::Error via Display, which renders only
-    // the top-level message. Inline the underlying error into the format string
-    // (`": {e}"`) — `.with_context(...)` chains would be silently dropped here.
-    fn try_from(raw: RawRule) -> Result<Self> {
-        let compile = |pats: Vec<String>| -> Result<Vec<Pattern>> {
-            pats.into_iter()
-                .map(|p| {
-                    Pattern::new(&p).map_err(|e| {
-                        anyhow!("invalid glob pattern {p:?} in rule '{}': {e}", raw.name)
-                    })
-                })
-                .collect()
-        };
-        Ok(Rule {
-            includes: compile(raw.includes)?,
-            excludes: compile(raw.excludes)?,
-            name: raw.name,
-            description: raw.description,
-            query: raw.query,
-            fix: raw.fix,
-            severity: raw.severity,
+fn deserialize_globs<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<Pattern>, D::Error> {
+    Vec::<String>::deserialize(d)?
+        .into_iter()
+        .map(|p| {
+            Pattern::new(&p)
+                .map_err(|e| serde::de::Error::custom(format!("invalid glob {p:?}: {e}")))
         })
-    }
+        .collect()
 }
 
 impl Rule {
@@ -118,14 +85,15 @@ pub(crate) fn parse_rule(content: &str) -> Result<Rule> {
 
 #[cfg(test)]
 pub(crate) fn test_rule(query: &str) -> Rule {
-    RawRule {
+    Rule {
         name: "test".into(),
         description: "test".into(),
         query: query.into(),
-        ..Default::default()
+        fix: None,
+        severity: RuleSeverity::default(),
+        includes: vec![],
+        excludes: vec![],
     }
-    .try_into()
-    .unwrap()
 }
 
 pub fn load_rule_from_file(path: &Path) -> Result<Rule> {
@@ -436,16 +404,12 @@ mod test {
     }
 
     fn rule_with_filters(includes: &[&str], excludes: &[&str]) -> Rule {
-        RawRule {
-            name: "test".into(),
-            description: "test".into(),
-            query: "(source_file) @error".into(),
-            includes: includes.iter().map(|s| (*s).to_string()).collect(),
-            excludes: excludes.iter().map(|s| (*s).to_string()).collect(),
-            ..Default::default()
+        let compile = |pats: &[&str]| pats.iter().map(|p| Pattern::new(p).unwrap()).collect();
+        Rule {
+            includes: compile(includes),
+            excludes: compile(excludes),
+            ..test_rule("(source_file) @error")
         }
-        .try_into()
-        .unwrap()
     }
 
     #[test]
