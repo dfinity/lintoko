@@ -1,0 +1,11 @@
+name = "allowed-directories"
+description = "Motoko files must live in an allowed backend directory"
+excludes = [
+    "backend/types/**",
+    "backend/lib/**",
+    "backend/mixins/**",
+    "backend/migrations/**",
+    "backend/next-migration/**",
+    "backend/main.mo",
+]
+query = "(source_file) @error"

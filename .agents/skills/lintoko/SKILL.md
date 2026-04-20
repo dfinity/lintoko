@@ -19,6 +19,8 @@ query = """
 (tree_sitter_query) @error
 """
 fix = "@captured_replacement"  # optional
+includes = ["backend/types/**"]      # optional
+excludes = ["**/*.test.mo"]          # optional
 ```
 
 ### Fields
@@ -30,6 +32,18 @@ fix = "@captured_replacement"  # optional
 | `description` | yes | Message shown to the user. Supports `@capture` templating — capture names are replaced with matched source text at report time |
 | `query` | yes | Tree-sitter query. Must contain at least one `@error` capture |
 | `fix` | no | Replacement template using `@capture` references. When `--fix` is passed, the `@error` range is replaced with this expanded string |
+| `includes` | no | List of globs; rule only runs on paths matching at least one. Empty/absent = match all |
+| `excludes` | no | List of globs; rule is skipped on any matching path |
+
+### Path filtering (`includes` / `excludes`)
+
+Globs match the path string lintoko was handed (typically project-relative because `mops lint` runs from the project root). Patterns are anchored to the full path; use `**` to match any number of segments.
+
+- Scope a rule to a directory: `includes = ["backend/types/**"]`
+- Enforce a directory layout: pair `query = "(source_file) @error"` with `excludes = [...permitted paths...]` so the rule fires on every file *outside* the allowlist.
+- Both fields together: file must match at least one `include` AND no `exclude`.
+
+Patterns are validated at load time, so typos surface before linting starts.
 
 ### TOML string quoting
 
@@ -104,7 +118,7 @@ Match any of several node structures with `[...]`. A capture after `]` captures 
 | `#not-match?` | `(#not-match? @ident "^[a-z_][a-zA-Z0-9]*$")` |
 | `#any-of?` set | `(#any-of? @type "List" "Set" "Map")` |
 
-Predicates go inside the outermost `()` of the pattern. Multiple `#not-eq?` predicates create an **allowlist** — everything is flagged except listed values.
+Predicates go inside the outermost `()` of the pattern. Multiple `#not-eq?` predicates create an **allowlist** — everything is flagged except listed values. For path-based scoping use the `includes`/`excludes` rule fields instead of predicates.
 
 ### Multiple patterns
 

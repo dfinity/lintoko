@@ -1,9 +1,10 @@
 mod custom_predicates;
 
 use anyhow::{Context, Result, anyhow};
+use glob::Pattern;
 use miette::{LabeledSpan, NamedSource, Severity, miette};
 use regex::Regex;
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use std::collections::HashSet;
 use std::{fs, io::Write, path::Path};
 use tracing::debug;
@@ -39,6 +40,29 @@ pub struct Rule {
     fix: Option<String>,
     #[serde(default)]
     severity: RuleSeverity,
+    // Path globs the rule applies to; empty means all paths. See SKILL.md for semantics.
+    #[serde(default, deserialize_with = "deserialize_globs")]
+    includes: Vec<Pattern>,
+    // Path globs the rule is skipped on; takes precedence over `includes`.
+    #[serde(default, deserialize_with = "deserialize_globs")]
+    excludes: Vec<Pattern>,
+}
+
+fn deserialize_globs<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<Pattern>, D::Error> {
+    Vec::<String>::deserialize(d)?
+        .into_iter()
+        .map(|p| {
+            Pattern::new(&p)
+                .map_err(|e| serde::de::Error::custom(format!("invalid glob {p:?}: {e}")))
+        })
+        .collect()
+}
+
+impl Rule {
+    fn applies_to(&self, path: &str) -> bool {
+        let matches_any = |pats: &[Pattern]| pats.iter().any(|p| p.matches(path));
+        (self.includes.is_empty() || matches_any(&self.includes)) && !matches_any(&self.excludes)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -50,10 +74,24 @@ struct RawDiagnostic {
     severity: RuleSeverity,
 }
 
+#[cfg(test)]
+pub(crate) fn test_rule(query: &str) -> Rule {
+    Rule {
+        name: "test".into(),
+        description: "test".into(),
+        query: query.into(),
+        fix: None,
+        severity: RuleSeverity::default(),
+        includes: vec![],
+        excludes: vec![],
+    }
+}
+
 pub fn load_rule_from_file(path: &Path) -> Result<Rule> {
-    let content = std::fs::read_to_string(path)?;
-    let rule = toml::from_str(&content)?;
-    Ok(rule)
+    let content = std::fs::read_to_string(path)
+        .with_context(|| format!("Failed to read rule from '{}'", path.display()))?;
+    toml::from_str(&content)
+        .with_context(|| format!("Failed to parse rule from '{}'", path.display()))
 }
 
 pub fn load_rules_from_directory(dir: &Path) -> Result<Vec<Rule>> {
@@ -65,9 +103,7 @@ pub fn load_rules_from_directory(dir: &Path) -> Result<Vec<Rule>> {
         let path = entry.path();
         if path.is_file() && path.extension().unwrap_or_default() == "toml" {
             debug!("Parsing extra rule at: {}", path.display());
-            let rule = load_rule_from_file(&path)
-                .with_context(|| anyhow!("Failed to parse rule from: '{}'", path.display()))?;
-            rules.push(rule)
+            rules.push(load_rule_from_file(&path)?);
         }
     }
     Ok(rules)
@@ -225,6 +261,9 @@ pub fn lint_file(
     let tree = parser.parse(input.as_bytes(), None).unwrap();
     let mut diagnostics = Vec::new();
     for rule in rules {
+        if !rule.applies_to(path) {
+            continue;
+        }
         diagnostics.extend(apply_rule(rule, tree.root_node(), input)?);
     }
     if let Some(severity) = config.severity_override {
@@ -309,6 +348,11 @@ mod test {
         assert_eq!(str::from_utf8(&out).unwrap(), "");
     }
 
+    /// Snapshot tests use `backend/main.mo` so that path-filtered example rules
+    /// (`allowed-directories`, `types-only`) do not fire and we exercise only
+    /// the structural rules.
+    const SNAPSHOT_PATH: &str = "backend/main.mo";
+
     #[test]
     fn it_lints_example_rules() {
         let mut out: Vec<u8> = vec![];
@@ -318,7 +362,7 @@ mod test {
         let rules = load_rules_from_directory(Path::new("example-rules")).unwrap();
         let _ = lint_file(
             &Config::default(),
-            "<input_path>",
+            SNAPSHOT_PATH,
             include_str!("../test-data.mo"),
             &rules,
             &mut out,
@@ -341,7 +385,7 @@ mod test {
                 format: OutputFormat::Text,
                 ..Config::default()
             },
-            "<input_path>",
+            SNAPSHOT_PATH,
             include_str!("../test-data.mo"),
             &rules,
             &mut out,
@@ -349,6 +393,99 @@ mod test {
         .unwrap();
         let lint_output = str::from_utf8(&out).unwrap();
         insta::assert_snapshot!(lint_output);
+    }
+
+    fn rule_with_filters(includes: &[&str], excludes: &[&str]) -> Rule {
+        let compile = |pats: &[&str]| pats.iter().map(|p| Pattern::new(p).unwrap()).collect();
+        Rule {
+            includes: compile(includes),
+            excludes: compile(excludes),
+            ..test_rule("(source_file) @error")
+        }
+    }
+
+    #[test]
+    fn applies_to_handles_includes_excludes() {
+        let no_filters = rule_with_filters(&[], &[]);
+        assert!(no_filters.applies_to("anywhere/foo.mo"));
+
+        let only_types = rule_with_filters(&["backend/types/**"], &[]);
+        assert!(only_types.applies_to("backend/types/Foo.mo"));
+        assert!(only_types.applies_to("backend/types/sub/Foo.mo"));
+        assert!(!only_types.applies_to("backend/lib/Foo.mo"));
+
+        let except_lib = rule_with_filters(&[], &["backend/lib/**"]);
+        assert!(except_lib.applies_to("backend/types/Foo.mo"));
+        assert!(!except_lib.applies_to("backend/lib/Foo.mo"));
+
+        // includes wins as a coarse filter; excludes punches a hole inside it.
+        let lib_except_internal = rule_with_filters(&["backend/lib/**"], &["**/internal/**"]);
+        assert!(lib_except_internal.applies_to("backend/lib/Foo.mo"));
+        assert!(!lib_except_internal.applies_to("backend/lib/internal/Foo.mo"));
+        assert!(!lib_except_internal.applies_to("backend/types/Foo.mo"));
+    }
+
+    #[test]
+    fn invalid_glob_pattern_fails_at_parse() {
+        let toml_src = r#"
+name = "bad"
+description = "bad"
+query = "(source_file) @error"
+includes = ["[unterminated"]
+"#;
+        let err = toml::from_str::<Rule>(toml_src).unwrap_err();
+        assert!(
+            err.to_string().contains("invalid glob"),
+            "unexpected error: {err}"
+        );
+    }
+
+    fn assert_errors(rule: &Rule, source: &str, file_path: &str, expected: usize) {
+        let mut out: Vec<u8> = vec![];
+        let res = lint_file(
+            &Config::default(),
+            file_path,
+            source,
+            std::slice::from_ref(rule),
+            &mut out,
+        )
+        .unwrap();
+        assert_eq!(
+            res.error_count, expected,
+            "rule {} at {file_path}: expected {expected} errors",
+            rule.name
+        );
+    }
+
+    #[test]
+    fn allowed_directories_rule() {
+        let rule =
+            load_rule_from_file(Path::new("example-rules/allowed-directories.toml")).unwrap();
+        let src = "actor { };";
+        for (path, expected) in [
+            ("backend/lib/foo.mo", 0),
+            ("backend/types/foo.mo", 0),
+            ("backend/mixins/foo.mo", 0),
+            ("backend/migrations/001.mo", 0),
+            ("backend/next-migration/foo.mo", 0),
+            ("backend/main.mo", 0),
+            ("src/foo.mo", 1),
+            ("backend/other/foo.mo", 1),
+            ("backend/main2.mo", 1),
+        ] {
+            assert_errors(&rule, src, path, expected);
+        }
+    }
+
+    #[test]
+    fn types_only_scoped_by_path() {
+        let rule = load_rule_from_file(Path::new("example-rules/types-only.toml")).unwrap();
+        let mixed_src = "module { public type T = Nat; public func f() {} };";
+        assert_errors(&rule, mixed_src, "backend/types/foo.mo", 1);
+        assert_errors(&rule, mixed_src, "backend/lib/foo.mo", 0);
+
+        let only_types = "module { public type T = Nat };";
+        assert_errors(&rule, only_types, "backend/types/foo.mo", 0);
     }
 
     #[test]
