@@ -1,8 +1,8 @@
 # Unreleased
 - feat: add per-rule `severity` field (`"warning"` or `"error"`, defaults to `"error"`)
 - feat: add `--severity` CLI flag to override severity for all rules
-- feat: add `#match-file?` / `#not-match-file?` custom predicates for path-dependent rules
-- feat: add `allowed-directories` and `types-only` example rules demonstrating path predicates
+- feat: add per-rule `includes` / `excludes` glob fields for scoping rules to file paths
+- feat: add `allowed-directories` and `types-only` example rules demonstrating path scoping
 
 # 0.9.0
 - feat: allows matching/linting on nesting depth [#31](https://github.com/caffeinelabs/lintoko/pull/31)

@@ -1,6 +1,7 @@
 name = "types-only"
 description = "Files under backend/types/ must contain only type declarations. No functions, classes, or variable bindings."
+includes = ["backend/types/**"]
 query = '''
-((dec_field (_) @error) (#match-file? "^backend/types/"))
+(dec_field (_) @error)
 (dec_field (typ_dec) @filter)
 '''

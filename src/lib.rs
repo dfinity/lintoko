@@ -1,6 +1,7 @@
 mod custom_predicates;
 
 use anyhow::{Context, Result, anyhow};
+use glob::Pattern;
 use miette::{LabeledSpan, NamedSource, Severity, miette};
 use regex::Regex;
 use serde::Deserialize;
@@ -39,6 +40,40 @@ pub struct Rule {
     fix: Option<String>,
     #[serde(default)]
     severity: RuleSeverity,
+    /// Glob patterns; when set, the rule only runs on files matching at least one pattern.
+    #[serde(default)]
+    includes: Vec<String>,
+    /// Glob patterns; the rule is skipped on files matching any of these.
+    #[serde(default)]
+    excludes: Vec<String>,
+}
+
+impl Rule {
+    /// Validates that all `includes`/`excludes` entries parse as globs.
+    /// Called at load time so typos surface before linting starts.
+    fn validate_path_filters(&self) -> Result<()> {
+        for pat in self.includes.iter().chain(self.excludes.iter()) {
+            Pattern::new(pat)
+                .with_context(|| format!("invalid glob pattern {pat:?} in rule '{}'", self.name))?;
+        }
+        Ok(())
+    }
+
+    /// Path filters are matched against the path string lintoko was handed (typically project-relative).
+    /// Patterns are anchored to the full path; use `**` to match any number of segments.
+    fn applies_to(&self, path: &str) -> bool {
+        let any_match = |pats: &[String]| {
+            pats.iter()
+                .any(|p| Pattern::new(p).expect("validated at load time").matches(path))
+        };
+        if !self.includes.is_empty() && !any_match(&self.includes) {
+            return false;
+        }
+        if !self.excludes.is_empty() && any_match(&self.excludes) {
+            return false;
+        }
+        true
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -52,7 +87,8 @@ struct RawDiagnostic {
 
 pub fn load_rule_from_file(path: &Path) -> Result<Rule> {
     let content = std::fs::read_to_string(path)?;
-    let rule = toml::from_str(&content)?;
+    let rule: Rule = toml::from_str(&content)?;
+    rule.validate_path_filters()?;
     Ok(rule)
 }
 
@@ -102,7 +138,7 @@ fn template(
     Ok(new)
 }
 
-fn apply_rule(rule: &Rule, tree: Node, input: &str, path: &str) -> Result<Vec<RawDiagnostic>> {
+fn apply_rule(rule: &Rule, tree: Node, input: &str) -> Result<Vec<RawDiagnostic>> {
     let query = Query::new(&tree_sitter_motoko::LANGUAGE.into(), &rule.query)
         .with_context(|| format!("Failed to create query for rule '{}'", rule.name))?;
     let error_capture_index = query.capture_index_for_name("error").with_context(|| {
@@ -111,7 +147,7 @@ fn apply_rule(rule: &Rule, tree: Node, input: &str, path: &str) -> Result<Vec<Ra
             rule.query
         )
     })?;
-    let mut evaluator = custom_predicates::MatchEvaluator::new(&query, path);
+    let mut evaluator = custom_predicates::MatchEvaluator::new(&query);
     let mut cursor = QueryCursor::new();
     let mut matches = cursor.matches(&query, tree, input.as_bytes());
     let mut filtered: HashSet<Range> = HashSet::new();
@@ -225,7 +261,10 @@ pub fn lint_file(
     let tree = parser.parse(input.as_bytes(), None).unwrap();
     let mut diagnostics = Vec::new();
     for rule in rules {
-        diagnostics.extend(apply_rule(rule, tree.root_node(), input, path)?);
+        if !rule.applies_to(path) {
+            continue;
+        }
+        diagnostics.extend(apply_rule(rule, tree.root_node(), input)?);
     }
     if let Some(severity) = config.severity_override {
         for d in &mut diagnostics {
@@ -309,9 +348,9 @@ mod test {
         assert_eq!(str::from_utf8(&out).unwrap(), "");
     }
 
-    /// Snapshot tests use a project-relative path that satisfies all path-dependent
-    /// example rules: `backend/main.mo` is allow-listed by `allowed-directories` and
-    /// does not match `^backend/types/`, so `types-only` is silent.
+    /// Snapshot tests use `backend/main.mo` so that path-filtered example rules
+    /// (`allowed-directories`, `types-only`) do not fire and we exercise only
+    /// the structural rules.
     const SNAPSHOT_PATH: &str = "backend/main.mo";
 
     #[test]
@@ -354,6 +393,94 @@ mod test {
         .unwrap();
         let lint_output = str::from_utf8(&out).unwrap();
         insta::assert_snapshot!(lint_output);
+    }
+
+    fn rule_with_filters(includes: &[&str], excludes: &[&str]) -> Rule {
+        Rule {
+            name: "test".into(),
+            description: "test".into(),
+            query: "(source_file) @error".into(),
+            fix: None,
+            severity: Default::default(),
+            includes: includes.iter().map(|s| (*s).into()).collect(),
+            excludes: excludes.iter().map(|s| (*s).into()).collect(),
+        }
+    }
+
+    #[test]
+    fn applies_to_handles_includes_excludes() {
+        let no_filters = rule_with_filters(&[], &[]);
+        assert!(no_filters.applies_to("anywhere/foo.mo"));
+
+        let only_types = rule_with_filters(&["backend/types/**"], &[]);
+        assert!(only_types.applies_to("backend/types/Foo.mo"));
+        assert!(only_types.applies_to("backend/types/sub/Foo.mo"));
+        assert!(!only_types.applies_to("backend/lib/Foo.mo"));
+
+        let except_lib = rule_with_filters(&[], &["backend/lib/**"]);
+        assert!(except_lib.applies_to("backend/types/Foo.mo"));
+        assert!(!except_lib.applies_to("backend/lib/Foo.mo"));
+
+        // includes wins as a coarse filter; excludes punches a hole inside it.
+        let lib_except_internal = rule_with_filters(&["backend/lib/**"], &["**/internal/**"]);
+        assert!(lib_except_internal.applies_to("backend/lib/Foo.mo"));
+        assert!(!lib_except_internal.applies_to("backend/lib/internal/Foo.mo"));
+        assert!(!lib_except_internal.applies_to("backend/types/Foo.mo"));
+    }
+
+    #[test]
+    fn invalid_glob_pattern_fails_at_load() {
+        let toml_src = r#"
+name = "bad"
+description = "bad"
+query = "(source_file) @error"
+includes = ["[unterminated"]
+"#;
+        let path = std::env::temp_dir().join("lintoko-bad-rule.toml");
+        fs::write(&path, toml_src).unwrap();
+        let err = load_rule_from_file(&path).unwrap_err();
+        let msg = format!("{err:#}");
+        assert!(msg.contains("invalid glob"), "unexpected error: {msg}");
+    }
+
+    fn assert_rule_count(rule_path: &str, source: &str, file_path: &str, expected: usize) {
+        let mut out: Vec<u8> = vec![];
+        let rule = load_rule_from_file(Path::new(rule_path)).unwrap();
+        let res = lint_file(&Config::default(), file_path, source, &[rule], &mut out).unwrap();
+        assert_eq!(
+            res.error_count, expected,
+            "rule {rule_path} at {file_path}: expected {expected} errors"
+        );
+    }
+
+    #[test]
+    fn allowed_directories_rule() {
+        let rule = "example-rules/allowed-directories.toml";
+        let src = "actor { };";
+        for (path, expected) in [
+            ("backend/lib/foo.mo", 0),
+            ("backend/types/foo.mo", 0),
+            ("backend/mixins/foo.mo", 0),
+            ("backend/migrations/001.mo", 0),
+            ("backend/next-migration/foo.mo", 0),
+            ("backend/main.mo", 0),
+            ("src/foo.mo", 1),
+            ("backend/other/foo.mo", 1),
+            ("backend/main2.mo", 1),
+        ] {
+            assert_rule_count(rule, src, path, expected);
+        }
+    }
+
+    #[test]
+    fn types_only_scoped_by_path() {
+        let rule = "example-rules/types-only.toml";
+        let mixed_src = "module { public type T = Nat; public func f() {} };";
+        assert_rule_count(rule, mixed_src, "backend/types/foo.mo", 1);
+        assert_rule_count(rule, mixed_src, "backend/lib/foo.mo", 0);
+
+        let only_types = "module { public type T = Nat };";
+        assert_rule_count(rule, only_types, "backend/types/foo.mo", 0);
     }
 
     #[test]

@@ -19,6 +19,8 @@ query = """
 (tree_sitter_query) @error
 """
 fix = "@captured_replacement"  # optional
+includes = ["backend/types/**"]      # optional
+excludes = ["**/*.test.mo"]          # optional
 ```
 
 ### Fields
@@ -30,6 +32,18 @@ fix = "@captured_replacement"  # optional
 | `description` | yes | Message shown to the user. Supports `@capture` templating — capture names are replaced with matched source text at report time |
 | `query` | yes | Tree-sitter query. Must contain at least one `@error` capture |
 | `fix` | no | Replacement template using `@capture` references. When `--fix` is passed, the `@error` range is replaced with this expanded string |
+| `includes` | no | List of globs; rule only runs on paths matching at least one. Empty/absent = match all |
+| `excludes` | no | List of globs; rule is skipped on any matching path |
+
+### Path filtering (`includes` / `excludes`)
+
+Globs match the path string lintoko was handed (typically project-relative because `mops lint` runs from the project root). Patterns are anchored to the full path; use `**` to match any number of segments.
+
+- Scope a rule to a directory: `includes = ["backend/types/**"]`
+- Allowlist permitted locations: `excludes = ["backend/types/**", "backend/lib/**", "backend/main.mo"]` paired with `query = "(source_file) @error"` flags any `.mo` file outside the listed paths.
+- Both fields together: file must match at least one `include` AND no `exclude`.
+
+Patterns are validated at load time, so typos surface before linting starts.
 
 ### TOML string quoting
 
@@ -103,34 +117,8 @@ Match any of several node structures with `[...]`. A capture after `]` captures 
 | `#match?` regex | `(#match? @import "pure")` |
 | `#not-match?` | `(#not-match? @ident "^[a-z_][a-zA-Z0-9]*$")` |
 | `#any-of?` set | `(#any-of? @type "List" "Set" "Map")` |
-| `#match-file?` regex | `(#match-file? "^backend/types/")` |
-| `#not-match-file?` regex | `(#not-match-file? "^backend/main\.mo$")` |
 
-Predicates go inside the outermost `()` of the pattern. Multiple `#not-eq?` predicates create an **allowlist** — everything is flagged except listed values.
-
-### Path predicates (`#match-file?` / `#not-match-file?`)
-
-Match the **file path currently being linted** against a regex. Take no capture argument — only the path matters. Two use cases:
-
-1. **Scope a rule to a directory**: `(#match-file? "^backend/lib/")` makes the rule fire only for files under `backend/lib/`.
-2. **Enforce directory structure**: match on `source_file` with stacked `#not-match-file?` predicates to allowlist permitted paths. See `example-rules/allowed-directories.toml`.
-
-**Path contract** — the predicate receives the raw path string lintoko was handed, same as shown in diagnostics. Typically project-relative because `mops lint` runs from the project root.
-
-**Authoring:**
-
-- Use project-relative, forward-slash paths with `^` anchors (`^backend/types/`).
-- Unanchored `backend/types/` matches the substring anywhere — usually wrong for layout rules.
-- Path-dependent rules assume CWD = project root.
-
-**Multiple predicates AND** — readable as one predicate per allowed path:
-
-```
-((source_file) @error
- (#not-match-file? "^backend/types/")
- (#not-match-file? "^backend/lib/")
- (#not-match-file? "^backend/main\.mo$"))
-```
+Predicates go inside the outermost `()` of the pattern. Multiple `#not-eq?` predicates create an **allowlist** — everything is flagged except listed values. For path-based scoping use the `includes`/`excludes` rule fields instead of predicates.
 
 ### Multiple patterns
 
