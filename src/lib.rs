@@ -5,7 +5,6 @@ use glob::Pattern;
 use miette::{LabeledSpan, NamedSource, Severity, miette};
 use regex::Regex;
 use serde::Deserialize;
-use std::borrow::Cow;
 use std::collections::HashSet;
 use std::{fs, io::Write, path::Path};
 use tracing::debug;
@@ -132,8 +131,7 @@ pub(crate) fn test_rule(query: &str) -> Rule {
 pub fn load_rule_from_file(path: &Path) -> Result<Rule> {
     let content = std::fs::read_to_string(path)
         .with_context(|| format!("Failed to read rule from '{}'", path.display()))?;
-    parse_rule(&content)
-        .with_context(|| format!("Failed to parse rule from '{}'", path.display()))
+    parse_rule(&content).with_context(|| format!("Failed to parse rule from '{}'", path.display()))
 }
 
 pub fn load_rules_from_directory(dir: &Path) -> Result<Vec<Rule>> {
@@ -301,16 +299,9 @@ pub fn lint_file(
         .set_language(&tree_sitter_motoko::LANGUAGE.into())
         .expect("Error loading Motoko grammar");
     let tree = parser.parse(input.as_bytes(), None).unwrap();
-    // Normalize Windows separators once per file so authors can write portable
-    // forward-slash globs in `includes`/`excludes`. Skips the allocation on Unix.
-    let normalized_path: Cow<str> = if path.contains('\\') {
-        Cow::Owned(path.replace('\\', "/"))
-    } else {
-        Cow::Borrowed(path)
-    };
     let mut diagnostics = Vec::new();
     for rule in rules {
-        if !rule.applies_to(&normalized_path) {
+        if !rule.applies_to(path) {
             continue;
         }
         diagnostics.extend(apply_rule(rule, tree.root_node(), input)?);
@@ -476,21 +467,6 @@ mod test {
         assert!(lib_except_internal.applies_to("backend/lib/Foo.mo"));
         assert!(!lib_except_internal.applies_to("backend/lib/internal/Foo.mo"));
         assert!(!lib_except_internal.applies_to("backend/types/Foo.mo"));
-    }
-
-    #[test]
-    fn applies_to_normalizes_windows_separators() {
-        let scoped = rule_with_filters(&["backend/types/**"], &[]);
-        let mut out: Vec<u8> = vec![];
-        let res = lint_file(
-            &Config::default(),
-            "backend\\types\\Foo.mo",
-            "actor { };",
-            &[scoped],
-            &mut out,
-        )
-        .unwrap();
-        assert_eq!(res.error_count, 1, "backslash path should match forward-slash glob");
     }
 
     #[test]

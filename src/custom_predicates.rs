@@ -173,14 +173,26 @@ mod test {
 
     fn assert_lint_count(query: &str, input: &str, expected: usize) {
         let mut out: Vec<u8> = vec![];
-        let res =
-            lint_file(&Config::default(), "<test>", input, &[test_rule(query)], &mut out).unwrap();
+        let res = lint_file(
+            &Config::default(),
+            "<test>",
+            input,
+            &[test_rule(query)],
+            &mut out,
+        )
+        .unwrap();
         assert_eq!(res.error_count, expected);
     }
 
     fn assert_lint_errors(query: &str, input: &str, expected_err: &str) {
         let mut out: Vec<u8> = vec![];
-        let res = lint_file(&Config::default(), "<test>", input, &[test_rule(query)], &mut out);
+        let res = lint_file(
+            &Config::default(),
+            "<test>",
+            input,
+            &[test_rule(query)],
+            &mut out,
+        );
         assert!(res.is_err());
         let err = format!("{:#}", res.unwrap_err());
         assert!(err.contains(expected_err), "unexpected error: {err}");
