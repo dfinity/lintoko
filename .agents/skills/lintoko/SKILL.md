@@ -40,7 +40,7 @@ excludes = ["**/*.test.mo"]          # optional
 Globs match the path string lintoko was handed (typically project-relative because `mops lint` runs from the project root). Patterns are anchored to the full path; use `**` to match any number of segments.
 
 - Scope a rule to a directory: `includes = ["backend/types/**"]`
-- Allowlist permitted locations: `excludes = ["backend/types/**", "backend/lib/**", "backend/main.mo"]` paired with `query = "(source_file) @error"` flags any `.mo` file outside the listed paths.
+- Enforce a directory layout: pair `query = "(source_file) @error"` with `excludes = [...permitted paths...]` so the rule fires on every file *outside* the allowlist.
 - Both fields together: file must match at least one `include` AND no `exclude`.
 
 Patterns are validated at load time, so typos surface before linting starts.

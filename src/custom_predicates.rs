@@ -169,35 +169,18 @@ impl<'q> MatchEvaluator<'q> {
 
 #[cfg(test)]
 mod test {
-    use crate::{Config, Rule, lint_file};
+    use crate::{Config, lint_file, test_rule};
 
     fn assert_lint_count(query: &str, input: &str, expected: usize) {
         let mut out: Vec<u8> = vec![];
-        let rule = Rule {
-            name: "test".into(),
-            description: "test".into(),
-            query: query.into(),
-            fix: None,
-            severity: Default::default(),
-            includes: Vec::new(),
-            excludes: Vec::new(),
-        };
-        let res = lint_file(&Config::default(), "<test>", input, &[rule], &mut out).unwrap();
+        let res =
+            lint_file(&Config::default(), "<test>", input, &[test_rule(query)], &mut out).unwrap();
         assert_eq!(res.error_count, expected);
     }
 
     fn assert_lint_errors(query: &str, input: &str, expected_err: &str) {
         let mut out: Vec<u8> = vec![];
-        let rule = Rule {
-            name: "test".into(),
-            description: "test".into(),
-            query: query.into(),
-            fix: None,
-            severity: Default::default(),
-            includes: Vec::new(),
-            excludes: Vec::new(),
-        };
-        let res = lint_file(&Config::default(), "<test>", input, &[rule], &mut out);
+        let res = lint_file(&Config::default(), "<test>", input, &[test_rule(query)], &mut out);
         assert!(res.is_err());
         let err = format!("{:#}", res.unwrap_err());
         assert!(err.contains(expected_err), "unexpected error: {err}");
@@ -316,5 +299,4 @@ mod test {
             1,
         );
     }
-
 }

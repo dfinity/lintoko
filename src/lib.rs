@@ -32,47 +32,72 @@ pub struct Config {
     pub severity_override: Option<RuleSeverity>,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct Rule {
+/// Raw TOML shape for a rule before glob compilation. Kept separate from [`Rule`] so the
+/// public type can carry compiled `glob::Pattern` values directly, eliminating both
+/// per-call recompilation and any "validated at load time" panics.
+#[derive(Debug, Default, Deserialize)]
+struct RawRule {
     name: String,
     description: String,
     query: String,
     fix: Option<String>,
     #[serde(default)]
     severity: RuleSeverity,
-    /// Glob patterns; when set, the rule only runs on files matching at least one pattern.
     #[serde(default)]
     includes: Vec<String>,
-    /// Glob patterns; the rule is skipped on files matching any of these.
     #[serde(default)]
     excludes: Vec<String>,
 }
 
-impl Rule {
-    /// Validates that all `includes`/`excludes` entries parse as globs.
-    /// Called at load time so typos surface before linting starts.
-    fn validate_path_filters(&self) -> Result<()> {
-        for pat in self.includes.iter().chain(self.excludes.iter()) {
-            Pattern::new(pat)
-                .with_context(|| format!("invalid glob pattern {pat:?} in rule '{}'", self.name))?;
-        }
-        Ok(())
-    }
+#[derive(Debug, Deserialize)]
+#[serde(try_from = "RawRule")]
+pub struct Rule {
+    name: String,
+    description: String,
+    query: String,
+    fix: Option<String>,
+    severity: RuleSeverity,
+    /// When non-empty, the rule only runs on files whose path matches at least one pattern.
+    /// Patterns are anchored to the full path string lintoko was handed (typically
+    /// project-relative); use `**` to match zero or more path segments.
+    includes: Vec<Pattern>,
+    /// When a path matches any pattern here, the rule is skipped. Same matching
+    /// semantics as [`Rule::includes`]. Combined with `includes`, the rule runs
+    /// when the path is included AND not excluded.
+    excludes: Vec<Pattern>,
+}
 
-    /// Path filters are matched against the path string lintoko was handed (typically project-relative).
-    /// Patterns are anchored to the full path; use `**` to match any number of segments.
-    fn applies_to(&self, path: &str) -> bool {
-        let any_match = |pats: &[String]| {
-            pats.iter()
-                .any(|p| Pattern::new(p).expect("validated at load time").matches(path))
+impl TryFrom<RawRule> for Rule {
+    type Error = anyhow::Error;
+
+    fn try_from(raw: RawRule) -> Result<Self> {
+        let compile = |pats: Vec<String>| -> Result<Vec<Pattern>> {
+            pats.into_iter()
+                .map(|p| {
+                    Pattern::new(&p).map_err(|e| {
+                        anyhow!("invalid glob pattern {p:?} in rule '{}': {e}", raw.name)
+                    })
+                })
+                .collect()
         };
-        if !self.includes.is_empty() && !any_match(&self.includes) {
-            return false;
-        }
-        if !self.excludes.is_empty() && any_match(&self.excludes) {
-            return false;
-        }
-        true
+        Ok(Rule {
+            includes: compile(raw.includes)?,
+            excludes: compile(raw.excludes)?,
+            name: raw.name,
+            description: raw.description,
+            query: raw.query,
+            fix: raw.fix,
+            severity: raw.severity,
+        })
+    }
+}
+
+impl Rule {
+    fn applies_to(&self, path: &str) -> bool {
+        // Normalize Windows paths so authors can write forward-slash globs portably.
+        let path = path.replace('\\', "/");
+        let any = |pats: &[Pattern]| pats.iter().any(|p| p.matches(&path));
+        (self.includes.is_empty() || any(&self.includes)) && !any(&self.excludes)
     }
 }
 
@@ -85,11 +110,28 @@ struct RawDiagnostic {
     severity: RuleSeverity,
 }
 
-pub fn load_rule_from_file(path: &Path) -> Result<Rule> {
-    let content = std::fs::read_to_string(path)?;
-    let rule: Rule = toml::from_str(&content)?;
-    rule.validate_path_filters()?;
+pub fn parse_rule(content: &str) -> Result<Rule> {
+    let rule: Rule = toml::from_str(content)?;
     Ok(rule)
+}
+
+#[cfg(test)]
+pub(crate) fn test_rule(query: &str) -> Rule {
+    RawRule {
+        name: "test".into(),
+        description: "test".into(),
+        query: query.into(),
+        ..Default::default()
+    }
+    .try_into()
+    .unwrap()
+}
+
+pub fn load_rule_from_file(path: &Path) -> Result<Rule> {
+    let content = std::fs::read_to_string(path)
+        .with_context(|| format!("Failed to read rule from '{}'", path.display()))?;
+    parse_rule(&content)
+        .with_context(|| format!("Failed to parse rule from '{}'", path.display()))
 }
 
 pub fn load_rules_from_directory(dir: &Path) -> Result<Vec<Rule>> {
@@ -396,15 +438,16 @@ mod test {
     }
 
     fn rule_with_filters(includes: &[&str], excludes: &[&str]) -> Rule {
-        Rule {
+        RawRule {
             name: "test".into(),
             description: "test".into(),
             query: "(source_file) @error".into(),
-            fix: None,
-            severity: Default::default(),
-            includes: includes.iter().map(|s| (*s).into()).collect(),
-            excludes: excludes.iter().map(|s| (*s).into()).collect(),
+            includes: includes.iter().map(|s| (*s).to_string()).collect(),
+            excludes: excludes.iter().map(|s| (*s).to_string()).collect(),
+            ..Default::default()
         }
+        .try_into()
+        .unwrap()
     }
 
     #[test]
@@ -429,16 +472,14 @@ mod test {
     }
 
     #[test]
-    fn invalid_glob_pattern_fails_at_load() {
+    fn invalid_glob_pattern_fails_at_parse() {
         let toml_src = r#"
 name = "bad"
 description = "bad"
 query = "(source_file) @error"
 includes = ["[unterminated"]
 "#;
-        let path = std::env::temp_dir().join("lintoko-bad-rule.toml");
-        fs::write(&path, toml_src).unwrap();
-        let err = load_rule_from_file(&path).unwrap_err();
+        let err = parse_rule(toml_src).unwrap_err();
         let msg = format!("{err:#}");
         assert!(msg.contains("invalid glob"), "unexpected error: {msg}");
     }
