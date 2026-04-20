@@ -5,6 +5,7 @@ use glob::Pattern;
 use miette::{LabeledSpan, NamedSource, Severity, miette};
 use regex::Regex;
 use serde::Deserialize;
+use std::borrow::Cow;
 use std::collections::HashSet;
 use std::{fs, io::Write, path::Path};
 use tracing::debug;
@@ -70,6 +71,9 @@ pub struct Rule {
 impl TryFrom<RawRule> for Rule {
     type Error = anyhow::Error;
 
+    // NOTE: serde flattens this Error to a de::Error via Display, which renders only
+    // the top-level message. Inline the underlying error into the format string
+    // (`": {e}"`) — `.with_context(...)` chains would be silently dropped here.
     fn try_from(raw: RawRule) -> Result<Self> {
         let compile = |pats: Vec<String>| -> Result<Vec<Pattern>> {
             pats.into_iter()
@@ -94,9 +98,7 @@ impl TryFrom<RawRule> for Rule {
 
 impl Rule {
     fn applies_to(&self, path: &str) -> bool {
-        // Normalize Windows paths so authors can write forward-slash globs portably.
-        let path = path.replace('\\', "/");
-        let any = |pats: &[Pattern]| pats.iter().any(|p| p.matches(&path));
+        let any = |pats: &[Pattern]| pats.iter().any(|p| p.matches(path));
         (self.includes.is_empty() || any(&self.includes)) && !any(&self.excludes)
     }
 }
@@ -110,7 +112,7 @@ struct RawDiagnostic {
     severity: RuleSeverity,
 }
 
-pub fn parse_rule(content: &str) -> Result<Rule> {
+pub(crate) fn parse_rule(content: &str) -> Result<Rule> {
     let rule: Rule = toml::from_str(content)?;
     Ok(rule)
 }
@@ -143,9 +145,7 @@ pub fn load_rules_from_directory(dir: &Path) -> Result<Vec<Rule>> {
         let path = entry.path();
         if path.is_file() && path.extension().unwrap_or_default() == "toml" {
             debug!("Parsing extra rule at: {}", path.display());
-            let rule = load_rule_from_file(&path)
-                .with_context(|| anyhow!("Failed to parse rule from: '{}'", path.display()))?;
-            rules.push(rule)
+            rules.push(load_rule_from_file(&path)?);
         }
     }
     Ok(rules)
@@ -301,9 +301,16 @@ pub fn lint_file(
         .set_language(&tree_sitter_motoko::LANGUAGE.into())
         .expect("Error loading Motoko grammar");
     let tree = parser.parse(input.as_bytes(), None).unwrap();
+    // Normalize Windows separators once per file so authors can write portable
+    // forward-slash globs in `includes`/`excludes`. Skips the allocation on Unix.
+    let normalized_path: Cow<str> = if path.contains('\\') {
+        Cow::Owned(path.replace('\\', "/"))
+    } else {
+        Cow::Borrowed(path)
+    };
     let mut diagnostics = Vec::new();
     for rule in rules {
-        if !rule.applies_to(path) {
+        if !rule.applies_to(&normalized_path) {
             continue;
         }
         diagnostics.extend(apply_rule(rule, tree.root_node(), input)?);
@@ -469,6 +476,21 @@ mod test {
         assert!(lib_except_internal.applies_to("backend/lib/Foo.mo"));
         assert!(!lib_except_internal.applies_to("backend/lib/internal/Foo.mo"));
         assert!(!lib_except_internal.applies_to("backend/types/Foo.mo"));
+    }
+
+    #[test]
+    fn applies_to_normalizes_windows_separators() {
+        let scoped = rule_with_filters(&["backend/types/**"], &[]);
+        let mut out: Vec<u8> = vec![];
+        let res = lint_file(
+            &Config::default(),
+            "backend\\types\\Foo.mo",
+            "actor { };",
+            &[scoped],
+            &mut out,
+        )
+        .unwrap();
+        assert_eq!(res.error_count, 1, "backslash path should match forward-slash glob");
     }
 
     #[test]
