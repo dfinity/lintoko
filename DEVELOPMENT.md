@@ -7,24 +7,17 @@ Nice-to-have:
 - [`just` task runner](https://just.systems/)
 - [`cargo-insta` testing tool](http://insta.rs/docs/quickstart/)
 
-Check the [`justfile`](./justfile) for commands to run common tasks.
+Check the [`justfile`](./justfile) for commands to run common tasks
 
 # Making releases
 
-For version `X.Y.Z`:
+When updating to version vX.Y.Z
 
-1. `git checkout -b release/X.Y.Z`
-2. In [`CHANGELOG.md`](./CHANGELOG.md): rename `# Unreleased` to `# X.Y.Z` and add a fresh empty `# Unreleased` above it.
-3. Bump `version` in [`Cargo.toml`](./Cargo.toml); run `cargo build` to refresh `Cargo.lock`.
-4. Commit `release: X.Y.Z`, open a PR, get it reviewed, merge.
-5. Push the tag from your machine:
+1. Make sure the Changelog is up-to-date, and update its latest header with the new version
+2. Update the version in Cargo.toml + run `cargo build` to update the lockfile
+3. git commit -m "release: X.Y.Z" on a release branch, open a PR, merge it
+4. git fetch origin main
+5. git tag vX.Y.Z origin/main
+6. git push origin vX.Y.Z
 
-    ```sh
-    git fetch origin main
-    git tag vX.Y.Z origin/main
-    git push origin vX.Y.Z
-    ```
-
-The tag triggers [`release.yml`](./.github/workflows/release.yml) (cargo-dist,
-configured in [`dist-workspace.toml`](./dist-workspace.toml)) to build the
-binaries and publish the GitHub Release.
+Automation will take care of creating the release and its binaries. This is using `cargo-dist` and configured in [`dist-workspace.toml`](./dist-workspace.toml)
